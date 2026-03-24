@@ -1,0 +1,78 @@
+feature section
+
+app side{
+
+can read WhatsApp messages of groups to maintain schedule
+
+can upload test/midterms/finals schedules to database (or ask user to upload after reading message in case we can do that)
+
+can block social media apps and websites if user isn't finishing the daily tests (5/10 min buffs can be allowed for emergency)
+
+can also draw over other apps to send message if user is ignoring some calls like not uploading the syllabus or something (can be closed but if it wont be closed if done multiple times)
+
+it will also have all the dashboard and stuff as website
+
+will be an admin app so it cannot be uninstalled
+
+
+}
+
+
+ai dashboard{
+
+dashboard{
+
+current pace [smooth. alert, panic (if panic, will only focus on covering topics for the nearest paper and make schedules according to the topics and previous papers ] (according to the time left according to the next exam and how much weightage it has and how much user has covered and how much hard topics are and how much estimate time they will require)
+
+
+will show details such as:
+concepts mastered out of this many (according to all subject syllabus)
+how much hours we have used for study (will estimate from the test topics or study/focus mode)
+viva score will show the average percentage user achieves and number of sessions)
+topics that needs a review 
+
+
+a stats like graph which will have all the subjects and will show how good are we in each subject
+
+streak 
+
+recent activities
+
+upcoming exams which will also show how much prepared we are according to the syllabus or what kind of exam is it
+
+}
+
+knowledge tree section{
+
+will have a tree according to the all subject topics, as user progresses, tree will get green leaves. if not revised the leave will become brown and fall and will be green if we revise it. and small light green leaves if user hasn't started those topics are they will come in future
+
+size of the tree and leaves will depend in how many topics user has
+
+}
+
+Schedule{
+
+a calendar and will display all the topics we need to prepare today and over all day schedule which will always update if anything comes up
+
+}
+
+Syllabus{
+
+total courses
+progress grade
+average study hours a day
+
+
+will show all the subjects topics and how much we have mastered it
+
+}
+
+Voice viva and quiz {
+
+it wont allow copy pasting, wont allow to switch windows or windows or app. if user does that, session will be canceled and will be punished in some ways and according to how often user does that. if done often we can also stop all the social media apps/websites. 
+
+will be an option to give voice viva, it will orgranize a viva session according to the schedule, will ask questions and will also record how are we speaking like how much clear we speak, mispronounsiation, 
+
+}
+
+}

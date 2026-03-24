@@ -1,0 +1,630 @@
+================================================================================
+                         PROJECT REPORT
+================================================================================
+
+  Project Title   : NeuroCanopy — AI-Driven Educational Ecosystem
+  Version         : 1.0 (MVP)
+  Status          : In Development
+  Report Date     : 25 February 2026
+  Prepared By     : Project Veda Development Team
+
+================================================================================
+                       TABLE OF CONTENTS
+================================================================================
+
+  1.  Executive Summary
+  2.  Introduction & Background
+  3.  Problem Statement
+  4.  Objectives
+  5.  Solution Architecture
+  6.  Project Scope
+      6.1  In-Scope
+      6.2  Out-of-Scope (Phase 1)
+  7.  System Design & Technical Architecture
+      7.1  High-Level Architecture
+      7.2  Technology Stack
+      7.3  Directory & Module Structure
+  8.  Feature Specifications
+      8.1  Module I   — Mobile Companion (Android)
+      8.2  Module II  — Intelligent Web Platform (AI Dashboard)
+      8.3  Module III — AI Assessment & Tutor Engine
+  9.  Database Design
+  10. Security & Privacy Considerations
+  11. Key Performance Indicators (KPIs)
+  12. Development Methodology & Timeline
+  13. Challenges & Mitigation Strategies
+  14. Future Enhancements (Phase 2+)
+  15. Conclusion
+  16. References & Appendices
+
+================================================================================
+1. EXECUTIVE SUMMARY
+================================================================================
+
+NeuroCanopy is an AI-powered educational ecosystem engineered to bridge the
+persistent gap between a student's academic potential and their actual
+performance. The platform goes beyond conventional study-aid tools — which
+merely organize tasks — by functioning as a "Digital Guardian" that actively
+enforces discipline through device-level control while simultaneously
+optimizing learning retention via bio-mimetic visualization, termed the
+"Knowledge Tree."
+
+The system integrates two primary interfaces:
+
+  (a)  A strict Android companion application that manages distractions at
+       the operating-system level, and
+
+  (b)  An intelligent React-based web dashboard that provides analytics,
+       adaptive scheduling, AI-powered voice assessments, and the signature
+       Knowledge Tree visualization.
+
+Together, these components form a closed-loop productivity system that
+enforces focus, adapts dynamically to academic schedules, and verifies
+concept mastery through active recall mechanisms.
+
+================================================================================
+2. INTRODUCTION & BACKGROUND
+================================================================================
+
+The modern educational landscape is characterized by an unprecedented
+abundance of digital distractions. Students — particularly those in
+higher education — face constant temptation from social media, streaming
+services, and communication platforms. Traditional academic tools such as
+calendars, to-do lists, and note-taking apps are inherently passive; they
+require the student to possess self-discipline to use them effectively.
+
+NeuroCanopy was conceived from the observation that the three primary
+barriers to academic success in the digital age are:
+
+  1.  Digital fragmentation and inability to sustain focus.
+  2.  Rigid, unadaptive scheduling that crumbles under real-world pressure.
+  3.  Passive consumption of learning material without active verification
+      of understanding.
+
+The project aims to address each barrier with a purpose-built subsystem,
+unified under a single ecosystem that synchronizes in real time between
+mobile and web interfaces.
+
+================================================================================
+3. PROBLEM STATEMENT
+================================================================================
+
+Current educational productivity tools fail to address the three primary
+causes of academic underperformance in the digital age:
+
+  3.1  Digital Fragmentation
+       ─────────────────────
+       Students lose an average of 3–4 hours daily to social media
+       distractions and context switching between productive and
+       non-productive applications. Existing solutions rely on voluntary
+       self-control, which is insufficient for sustained focus.
+
+  3.2  Static Planning
+       ───────────────
+       Traditional calendars, planners, and scheduling tools do not adapt
+       to real-time disruptions such as burnout, sudden exam announcements,
+       or unforeseen academic obligations. This leads to "schedule collapse,"
+       where the student abandons the plan entirely and enters a state of
+       panic-driven, unstructured cramming.
+
+  3.3  Passive Learning
+       ────────────────
+       Students frequently engage in passive reading without retaining
+       information. There is a critical absence of on-demand active recall
+       mechanisms — such as oral viva examinations — available outside the
+       classroom to verify concept mastery and reinforce memory.
+
+================================================================================
+4. OBJECTIVES
+================================================================================
+
+The primary objectives of the NeuroCanopy project are:
+
+  O1.  Develop an Android companion application capable of enforcing
+       distraction-free study sessions through OS-level app-blocking and
+       device administration privileges.
+
+  O2.  Build an intelligent, React-based web dashboard that provides:
+         —  Real-time academic analytics (mastery index, effort logs, etc.)
+         —  A bio-mimetic "Knowledge Tree" visualization reflecting
+            syllabus progress and memory retention.
+         —  An adaptive AI-driven scheduling engine.
+         —  A comprehensive syllabus management interface.
+
+  O3.  Integrate large language models (Gemini) for:
+         —  Automated syllabus parsing and topic extraction.
+         —  AI-conducted voice viva examinations with speech analysis.
+         —  Intelligent doubt resolution and summary generation.
+
+  O4.  Implement a gamification layer (Streak System, Redemption Store)
+       that balances strict enforcement with positive reinforcement.
+
+  O5.  Ensure real-time synchronization between mobile and web interfaces
+       through Firebase Firestore.
+
+================================================================================
+5. SOLUTION ARCHITECTURE
+================================================================================
+
+NeuroCanopy deploys a Closed-Loop Productivity System comprising three
+interlocking subsystems:
+
+  ┌──────────────────────────────────────────────────────────────────┐
+  │                                                                  │
+  │   ENFORCEMENT (Mobile App)                                       │
+  │   ───────────────────────                                        │
+  │   Removes the option of distraction by locking the digital       │
+  │   environment during study hours. Utilizes Device Admin,         │
+  │   Draw-Over, and Usage Access permissions.                       │
+  │                                                                  │
+  │   ADAPTABILITY (AI Dashboard)                                    │
+  │   ──────────────────────────                                     │
+  │   Ingests schedules from informal channels and restructures      │
+  │   study plans dynamically based on "Panic," "Alert," or          │
+  │   "Smooth" preparation states.                                   │
+  │                                                                  │
+  │   VERIFICATION (AI Assessment Engine)                            │
+  │   ──────────────────────────────────                              │
+  │   Replaces passive reading with active "Voice Vivas" — AI-      │
+  │   conducted oral examinations that grade verbal answers for      │
+  │   accuracy, clarity, and confidence.                             │
+  │                                                                  │
+  └──────────────────────────────────────────────────────────────────┘
+
+Data flows bidirectionally between all three subsystems via Firebase
+Firestore, ensuring that enforcement decisions on the mobile app are
+informed by analytics from the dashboard, and vice versa.
+
+================================================================================
+6. PROJECT SCOPE
+================================================================================
+
+6.1  In-Scope
+     ────────
+     •  Android Admin Application:
+        A non-uninstallable companion app with "Draw Over" and "Usage
+        Access" permissions for enforcement of focus sessions.
+
+     •  Web-Based Command Center:
+        A React-based dashboard for analytics, the Knowledge Tree
+        visualization, Voice Viva assessments, and the Redemption Store.
+
+     •  AI Backend:
+        Integration of LLMs (Google Gemini API) for syllabus parsing,
+        viva question generation, speech-to-text analysis, and
+        intelligent scheduling.
+
+     •  Real-Time Database:
+        Firebase Firestore implementation for instant data
+        synchronization between the mobile blocker and web dashboard.
+
+6.2  Out-of-Scope (Phase 1)
+     ──────────────────────
+     •  iOS Application
+        Due to OS-level restriction limitations, Apple's sandboxing
+        policies prevent the device-administration features required
+        by the enforcement module.
+
+     •  Physical Hardware Integration
+        Smart wearables and IoT-based monitoring are deferred to
+        future development phases.
+
+================================================================================
+7. SYSTEM DESIGN & TECHNICAL ARCHITECTURE
+================================================================================
+
+7.1  High-Level Architecture
+     ────────────────────────
+
+     ┌─────────────┐     HTTPS/WSS      ┌──────────────────────┐
+     │  Android     │ ◄───────────────► │   Firebase Backend    │
+     │  Companion   │                    │  ┌────────────────┐  │
+     │  (Kotlin)    │                    │  │  Firestore DB  │  │
+     └─────────────┘                    │  │  Auth Service   │  │
+                                         │  │  Cloud Functions│  │
+     ┌─────────────┐     HTTPS/WSS      │  │  Storage        │  │
+     │  React Web   │ ◄───────────────► │  └────────────────┘  │
+     │  Dashboard   │                    └──────────┬───────────┘
+     │  (Vite+TS)   │                               │
+     └─────────────┘                               │
+                                         ┌──────────▼───────────┐
+                                         │   Google Gemini API   │
+                                         │   (LLM Integration)   │
+                                         └──────────────────────┘
+
+7.2  Technology Stack
+     ─────────────────
+
+     Layer              Technology                  Purpose
+     ──────────────     ──────────────────────      ──────────────────────────
+     Frontend (Web)     React 18 + TypeScript       Main web dashboard UI
+     Build Tool         Vite 7.x                    Fast development builds
+     Styling            Tailwind CSS 3.4            Utility-first CSS framework
+     UI Components      Radix UI + shadcn/ui        Accessible component library
+     State Management   TanStack React Query        Async state & caching
+     Visualization      D3.js v7                    Knowledge Tree rendering
+     Animations         Framer Motion               Page & element transitions
+     Charts             Recharts                    Analytics charts & graphs
+     Forms              React Hook Form + Zod       Form handling & validation
+     Routing            React Router DOM v6         Client-side routing
+     Backend (BaaS)     Firebase v12                Authentication, Firestore,
+                                                    Cloud Functions, Storage
+     AI Integration     Google Gemini API           Text parsing, speech analysis,
+                                                    question generation
+     PDF Processing     PDF.js                      Syllabus & note extraction
+     Mobile (Android)   Kotlin / React Native       Distraction enforcement app
+     Security           Firebase Auth + RLS         Row-level security & auth
+
+7.3  Directory & Module Structure
+     ─────────────────────────────
+
+     V6/
+     ├── documents/                 # PRD, feature docs, project report
+     ├── public/                    # Static assets (icons, manifest)
+     ├── src/
+     │   ├── components/
+     │   │   ├── auth/              # Authentication & registration flows
+     │   │   │   └── steps/         # Multi-step registration wizard
+     │   │   ├── dashboard/         # Dashboard widgets & analytics cards
+     │   │   ├── landing/           # Landing page sections (Hero, etc.)
+     │   │   └── ui/                # Reusable UI primitives (49 components)
+     │   ├── contexts/              # React context providers
+     │   ├── hooks/                 # Custom React hooks (8 hooks)
+     │   ├── lib/                   # Utility libraries (Firebase init, etc.)
+     │   ├── pages/                 # Route-level page components (14 pages)
+     │   │   ├── Index.tsx          # Landing page
+     │   │   ├── Login.tsx          # User authentication
+     │   │   ├── Register.tsx       # Multi-step registration
+     │   │   ├── Dashboard.tsx      # Main analytics dashboard
+     │   │   ├── KnowledgeTreePage  # Bio-mimetic tree visualization
+     │   │   ├── Syllabus.tsx       # Syllabus management & upload
+     │   │   ├── VoiceViva.tsx      # AI-powered voice assessments
+     │   │   ├── Schedule.tsx       # Adaptive scheduling calendar
+     │   │   ├── Chat.tsx           # AI learning assistant
+     │   │   ├── Profile.tsx        # User profile management
+     │   │   ├── Settings.tsx       # Application settings
+     │   │   └── ...                # Password reset, error pages, etc.
+     │   └── utils/                 # Shared utility functions
+     ├── index.html                 # Application entry point
+     ├── vite.config.ts             # Vite build configuration
+     ├── tailwind.config.ts         # Tailwind CSS configuration
+     ├── tsconfig.json              # TypeScript compiler options
+     ├── package.json               # Dependencies & scripts
+     └── storage.rules              # Firebase Storage security rules
+
+================================================================================
+8. FEATURE SPECIFICATIONS
+================================================================================
+
+8.1  Module I — Mobile Companion (Android)
+     ──────────────────────────────────────
+
+     Designed for high-accountability enforcement and data ingestion.
+
+     8.1.1  Intelligent Schedule Parsing
+            •  Utilizes notification access to monitor communication
+               platforms (e.g., WhatsApp groups) for keywords related
+               to exams, deadlines, or schedule changes.
+            •  Action: Automatically prompts the user to add detected
+               dates to the central database or upload relevant
+               documents immediately.
+
+     8.1.2  Distraction Management Protocol
+            •  Enforces a strict "Focus Mode" during scheduled study
+               sessions or when daily targets are unfulfilled.
+            •  Blocking Logic: Temporarily restricts access to social
+               media and entertainment applications. Includes a
+               configurable "buffer" allowance (5–10 minute emergency
+               windows) to maintain safety without compromising focus.
+
+     8.1.3  Persistent Accountability Alerts
+            •  Utilizes "Draw Over Other Apps" permissions to display
+               intrusive reminders when critical tasks are neglected
+               (e.g., failure to upload a syllabus).
+            •  Escalation: Alerts become persistent and non-dismissible
+               upon repeated user non-compliance.
+
+     8.1.4  Device Administration Security
+            •  Operates as a Device Admin app to prevent unauthorized
+               uninstallation during active academic terms.
+            •  Ensures consistent adherence to the study regimen.
+
+
+8.2  Module II — Intelligent Web Platform (AI Dashboard)
+     ────────────────────────────────────────────────────
+
+     The central command center for analytics, visualization, and
+     learning management. Implemented in React + TypeScript with Vite.
+
+     8.2.1  Dynamic Pacing Engine
+            Categorizes user preparation status in real time:
+
+            State     Description
+            ────────  ───────────────────────────────────────────────
+            Smooth    User is on track with the syllabus.
+            Alert     Mild backlog detected; schedule compresses.
+            Panic     Critical time deficit; AI auto-prioritizes
+                      high-yield topics and ignores low-weightage
+                      material to optimize remaining time.
+
+     8.2.2  Comprehensive Analytics Suite
+            •  Concept Mastery Index: % of concepts mastered vs. total.
+            •  Effort Estimation: Meaningful study hours (derived from
+               Focus Mode duration and topic completion).
+            •  Viva Performance Metrics: Average viva scores, session
+               frequency, and per-topic breakdown.
+            •  Review Radar: Identifies "At-Risk" topics requiring
+               immediate review based on spaced-repetition decay.
+            •  Subject Proficiency Graph: Radar chart visualizing
+               strengths and weaknesses across all subjects.
+
+     8.2.3  Visualized Knowledge Graph (The Tree)
+            •  Organic Progress Visualization: The syllabus is rendered
+               as a living D3.js-powered tree.
+               —  Growth: New topics appear as buds/small leaves.
+               —  Mastery: Completed topics become vibrant green leaves.
+               —  Decay: Unrevised topics turn brown and eventually
+                  "fall," visually signaling memory decay (spaced
+                  repetition enforcement).
+            •  Scale: The tree's complexity and size dynamically adjust
+               to match the total number of topics in the curriculum.
+
+     8.2.4  Adaptive Scheduler (Quantum Calendar)
+            •  A dynamic calendar that updates in real time.
+            •  If a study block is missed or a new exam is announced,
+               the AI automatically reshuffles remaining tasks to
+               ensure syllabus coverage without manual replanning.
+
+     8.2.5  Syllabus Commander & Resource Vault
+            •  Curriculum Tracking: Displays total courses, progress
+               grades, and topic-level breakdown.
+            •  Resource Library: Users upload learning materials (PDFs,
+               PPTs, handwritten notes). The AI parses these to auto-
+               populate the topic list.
+
+
+8.3  Module III — AI Assessment & Tutor Engine
+     ──────────────────────────────────────────
+
+     The interactive layer for testing and concept reinforcement.
+
+     8.3.1  Secure Assessment Environment (Voice Viva & Quiz)
+            •  Anti-Cheat Integrity: Enforces a locked browser/window
+               state during all assessments.
+               —  Violation Logic: Copy-pasting, tab switching, or
+                  window minimizing triggers immediate session
+                  cancellation.
+               —  Punitive Measures: Repeated violations trigger a
+                  system-wide lock on leisure apps via the mobile
+                  companion app.
+            •  AI Viva Examiner: Conducts oral examinations on
+               scheduled topics.
+               —  Speech Analysis: Evaluates answer accuracy, speech
+                  clarity, confidence level, and pronunciation quality.
+
+     8.3.2  Interactive Learning Assistant
+            •  Doubt Resolution: Provides an interface for topic-
+               specific clarification questions before or after viva.
+            •  Summary Generation: Creates concise summaries of
+               uploaded PDFs for quick revision during Panic Mode.
+
+     8.3.3  Gamification & Redemption System
+            •  Streak System: Tracks consecutive days of meeting
+               study goals.
+            •  Redemption Store: Users "purchase" lost privileges
+               (social media time) or restore "fallen leaves" by
+               completing extra credit quizzes — balancing the strict
+               enforcement model with positive reinforcement.
+
+================================================================================
+9. DATABASE DESIGN
+================================================================================
+
+NeuroCanopy utilizes Firebase Firestore as its primary database. The
+database is organized into the following principal collections:
+
+  Collection         Description
+  ─────────────      ─────────────────────────────────────────────────
+  users/             User profile data, preferences, registration info,
+                     timetable, and academic configuration.
+
+  users/{uid}/       Subcollections for per-user data:
+    courses/         Enrolled courses with associated knowledge trees.
+    vivaResults/     Historical viva assessment scores & transcripts.
+    streaks/         Gamification data (daily streak counters).
+    focusSessions/   Logged Focus Mode sessions with duration metrics.
+
+  syllabus/          Parsed syllabus data with topic hierarchy, weights,
+                     and mastery states used by the Knowledge Tree.
+
+  schedules/         AI-generated and user-modified study schedules
+                     with real-time pacing state (Smooth/Alert/Panic).
+
+  resources/         User-uploaded learning materials (PDFs, notes) with
+                     metadata and AI-extracted summaries.
+
+  chatMessages/      Conversation history with the AI Learning Assistant.
+
+  redemptionStore/   Available rewards and user transaction history.
+
+All collections enforce strict Row-Level Security (RLS) rules to ensure
+that users can only read and write their own data.
+
+================================================================================
+10. SECURITY & PRIVACY CONSIDERATIONS
+================================================================================
+
+  10.1  Authentication
+        •  Firebase Authentication with email/password and Google
+           Sign-In (OAuth 2.0).
+        •  Password reset flows via secure email links.
+
+  10.2  Data Privacy
+        •  All user data is isolated via Firestore security rules.
+        •  API keys are managed via environment variables (.env) and
+           are never committed to version control (.gitignore enforced).
+        •  Strict Row-Level Security policies on Firestore ensure
+           users cannot access other users' data.
+
+  10.3  Assessment Integrity
+        •  The Voice Viva module enforces a locked assessment
+           environment with tab-switch and copy-paste detection.
+        •  Violations are logged and trigger escalating consequences.
+
+  10.4  Device Security
+        •  The Android companion app operates under Device Admin
+           privileges to prevent unauthorized removal during active
+           academic periods.
+
+================================================================================
+11. KEY PERFORMANCE INDICATORS (KPIs)
+================================================================================
+
+The success of NeuroCanopy will be measured by the following metrics:
+
+  KPI #   Metric                    Description
+  ──────  ────────────────────────  ───────────────────────────────────
+  KPI-1   Retention Rate            Percentage of "Green Leaves"
+                                    maintained on the Knowledge Tree
+                                    on a week-over-week basis.
+
+  KPI-2   Distraction Reduction     Measurable decrease in social
+                                    media usage statistics during
+                                    active Focus Mode blocks.
+
+  KPI-3   Viva Proficiency          Improvement in average Voice Viva
+                                    scores over a rolling 30-day
+                                    period.
+
+  KPI-4   Schedule Adherence        Percentage of planned study blocks
+                                    completed vs. scheduled (target:
+                                    >80% in Smooth state).
+
+  KPI-5   User Engagement           Daily active usage of the dashboard
+                                    and average session duration.
+
+================================================================================
+12. DEVELOPMENT METHODOLOGY & TIMELINE
+================================================================================
+
+  12.1  Methodology
+        •  Agile/Iterative development with weekly sprints.
+        •  Version-controlled via Git with modular branching strategy.
+        •  Continuous integration through Vite build system.
+
+  12.2  Development Phases
+
+  Phase   Deliverable                                   Status
+  ──────  ─────────────────────────────────────────────  ────────────
+  P1      Project Setup, Authentication, Registration   Completed
+  P2      Dashboard & Analytics Suite                   Completed
+  P3      Knowledge Tree (D3.js Visualization)          Completed
+  P4      Syllabus Commander & Resource Vault            Completed
+  P5      Voice Viva & AI Assessment Engine             Completed
+  P6      Adaptive Scheduler (Quantum Calendar)         Completed
+  P7      AI Chat / Learning Assistant                  Completed
+  P8      Gamification & Redemption Store               In Progress
+  P9      Android Companion App                         Planned
+  P10     Integration Testing & Launch                  Planned
+
+================================================================================
+13. CHALLENGES & MITIGATION STRATEGIES
+================================================================================
+
+  Challenge                          Mitigation Strategy
+  ─────────────────────────────────  ─────────────────────────────────────────
+  AI response latency for vivas     Implement streaming responses and
+                                    loading state indicators; use Gemini
+                                    Flash for lower-latency interactions.
+
+  Speech-to-text accuracy           Use Google's Gemini speech analysis
+                                    and provide user feedback for unclear
+                                    audio; allow re-recording.
+
+  Battery / performance impact      Optimize Focus Mode service with
+  of Android blocker                minimal CPU footprint; use Android
+                                    WorkManager for background scheduling.
+
+  Knowledge Tree rendering at       Implement lazy rendering and node
+  scale (100+ topics)               clustering in D3.js; virtualize
+                                    off-screen branches.
+
+  Schedule collapse edge cases      Design fallback logic for extreme
+                                    Panic Mode scenarios; guarantee a
+                                    minimum viable study plan always exists.
+
+  User resistance to enforcement    Balance strict measures with the
+                                    Redemption Store incentive system;
+                                    allow customizable strictness levels.
+
+================================================================================
+14. FUTURE ENHANCEMENTS (Phase 2+)
+================================================================================
+
+  •  iOS Companion App: Explore MDM-based enforcement or guided
+     access APIs as Apple's platform evolves.
+
+  •  Smart Wearable Integration: EAR-based attention tracking via
+     smartwatch sensors for automatic focus detection.
+
+  •  Collaborative Study Rooms: Real-time virtual study groups with
+     shared Knowledge Trees and peer accountability.
+
+  •  Institutional Dashboards: Aggregate analytics for educators
+     and institutions to monitor cohort-level progress.
+
+  •  Advanced NLP Tutoring: Context-aware tutoring that references
+     the student's uploaded materials and past viva transcripts.
+
+  •  Offline Mode: Full offline functionality for both web and
+     mobile platforms with background sync on reconnection.
+
+  •  Multi-Language Support: Localization for regional Indian
+     languages to expand accessibility.
+
+================================================================================
+15. CONCLUSION
+================================================================================
+
+NeuroCanopy represents a paradigm shift in educational technology — moving
+from passive organizational tools to an active, AI-powered enforcement and
+learning ecosystem. By combining device-level distraction management with
+intelligent adaptive scheduling and rigorous voice-based assessment, the
+platform addresses the three core deficiencies of existing academic tools:
+fragmented focus, rigid planning, and passive learning.
+
+The MVP, currently in active development, has successfully delivered its
+web-based command center with functional authentication, dashboard
+analytics, Knowledge Tree visualization, syllabus management, voice viva
+assessments, adaptive scheduling, and an AI chat assistant. The
+remaining work focuses on gamification refinements and the development
+of the Android companion application.
+
+Upon completion, NeuroCanopy aims to demonstrate measurable improvements
+in student focus, study consistency, and concept retention — validated
+through the defined KPIs of leaf retention rates, distraction reduction
+metrics, and viva proficiency scores.
+
+================================================================================
+16. REFERENCES & APPENDICES
+================================================================================
+
+  References
+  ──────────
+  [1]  Google Gemini API Documentation — ai.google.dev
+  [2]  Firebase Documentation — firebase.google.com/docs
+  [3]  React.js Official Documentation — react.dev
+  [4]  D3.js Documentation — d3js.org
+  [5]  Vite Build Tool — vitejs.dev
+  [6]  Tailwind CSS — tailwindcss.com
+  [7]  Radix UI / shadcn/ui — ui.shadcn.com
+
+  Appendices
+  ──────────
+  A.  Product Requirements Document (PRD.txt)
+  B.  Feature Specification Document (feature section.txt)
+  C.  Registration Flow Specification (Registration section.txt)
+
+================================================================================
+                       END OF PROJECT REPORT
+================================================================================
