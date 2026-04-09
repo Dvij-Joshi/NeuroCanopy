@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Network, ArrowRight, ArrowLeft, CheckCircle2, User, Brain, Activity, BookOpen, Clock, Layers, Upload, Plus } from 'lucide-react';
 
@@ -11,32 +11,9 @@ const STEPS = [
   { id: 6, title: 'Materials & Lifestyle', icon: Layers, desc: 'Syllabus & anchors' },
 ];
 
-const WEEK_DAYS = ['M', 'T', 'W', 'T', 'F', 'S'];
-
-type SlotRange = {
-  start: string;
-  end: string;
-};
-
 const toMinutes = (time: string) => {
   const [hours, minutes] = time.split(':').map(Number);
   return (hours || 0) * 60 + (minutes || 0);
-};
-
-const isValidTimeFormat = (time: string): boolean => {
-  if (!time || typeof time !== 'string') return false;
-  const match = time.match(/^(\d{1,2}):(\d{2})$/);
-  if (!match) return false;
-  const [, h, m] = match;
-  const hours = parseInt(h, 10);
-  const mins = parseInt(m, 10);
-  return hours >= 0 && hours <= 23 && mins >= 0 && mins <= 59;
-};
-
-const normalizeTime = (time: string): string => {
-  if (!isValidTimeFormat(time)) return time;
-  const [hours, minutes] = time.split(':');
-  return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
 };
 
 const toTimeString = (minutes: number) => {
@@ -49,23 +26,6 @@ const toTimeString = (minutes: number) => {
 };
 
 const addMinutes = (time: string, delta: number) => toTimeString(toMinutes(time) + delta);
-
-const buildSlotsFromRange = (start: string, end: string, chunkMinutes = 60): SlotRange[] => {
-  const startMins = toMinutes(start);
-  const endMins = toMinutes(end);
-  if (endMins <= startMins) {
-    return [{ start, end: addMinutes(start, chunkMinutes) }];
-  }
-
-  const slots: SlotRange[] = [];
-  let cursor = startMins;
-  while (cursor < endMins) {
-    const next = Math.min(cursor + chunkMinutes, endMins);
-    slots.push({ start: toTimeString(cursor), end: toTimeString(next) });
-    cursor = next;
-  }
-  return slots;
-};
 
 export default function Register() {
   const navigate = useNavigate();
@@ -84,10 +44,8 @@ export default function Register() {
   const [newSubject, setNewSubject] = useState('');
   const [collegeStart, setCollegeStart] = useState('09:00');
   const [collegeEnd, setCollegeEnd] = useState('16:00');
-  const [slots, setSlots] = useState<SlotRange[]>(() => buildSlotsFromRange('09:00', '16:00', 60));
-  const [scheduleGrid, setScheduleGrid] = useState<(number | null)[][]>(() =>
-    WEEK_DAYS.map(() => Array(buildSlotsFromRange('09:00', '16:00', 60).length).fill(null))
-  );
+  const [weekendCollegeStart, setWeekendCollegeStart] = useState('10:00');
+  const [weekendCollegeEnd, setWeekendCollegeEnd] = useState('14:00');
 
   const nextStep = () => setCurrentStep(prev => Math.min(prev + 1, STEPS.length));
   const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
@@ -104,30 +62,39 @@ export default function Register() {
     setLifestyleAnchors(prev => prev.includes(anchor) ? prev.filter(a => a !== anchor) : [...prev, anchor]);
   };
 
-  const syncGridWithSlots = (nextSlotCount: number) => {
-    setScheduleGrid((prev) =>
-      WEEK_DAYS.map((_, dayIndex) => {
-        const day = prev[dayIndex] ?? [];
-        return Array.from({ length: nextSlotCount }, (_, i) => (i < day.length ? day[i] : null));
-      })
-    );
-  };
+  const enforceWeekendRange = (
+    proposedStart: string,
+    proposedEnd: string,
+    regularStart: string,
+    regularEnd: string
+  ) => {
+    const regularDuration = Math.max(60, toMinutes(regularEnd) - toMinutes(regularStart));
+    const maxWeekendDuration = Math.max(30, regularDuration - 30);
 
-  useEffect(() => {
-    setScheduleGrid((prev) =>
-      prev.map((day) =>
-        day.map((value) => {
-          if (value === null || value === -1) return value;
-          return value < subjects.length ? value : null;
-        })
-      )
-    );
-  }, [subjects]);
+    let startMins = toMinutes(proposedStart);
+    let endMins = toMinutes(proposedEnd);
 
-  const rebuildSlotsFromCollegeRange = (nextStart: string, nextEnd: string) => {
-    const rebuilt = buildSlotsFromRange(nextStart, nextEnd, 60);
-    setSlots(rebuilt);
-    syncGridWithSlots(rebuilt.length);
+    if (endMins <= startMins) {
+      endMins = startMins + Math.min(60, maxWeekendDuration);
+    }
+
+    if (endMins - startMins > maxWeekendDuration) {
+      endMins = startMins + maxWeekendDuration;
+    }
+
+    if (endMins - startMins >= regularDuration) {
+      endMins = startMins + maxWeekendDuration;
+    }
+
+    if (endMins > 23 * 60 + 59) {
+      endMins = 23 * 60 + 59;
+      startMins = Math.max(0, endMins - maxWeekendDuration);
+    }
+
+    return {
+      start: toTimeString(startMins),
+      end: toTimeString(endMins),
+    };
   };
 
   const handleCollegeStartChange = (nextStart: string) => {
@@ -136,7 +103,10 @@ export default function Register() {
     if (safeEnd !== collegeEnd) {
       setCollegeEnd(safeEnd);
     }
-    rebuildSlotsFromCollegeRange(nextStart, safeEnd);
+
+    const adjustedWeekend = enforceWeekendRange(weekendCollegeStart, weekendCollegeEnd, nextStart, safeEnd);
+    setWeekendCollegeStart(adjustedWeekend.start);
+    setWeekendCollegeEnd(adjustedWeekend.end);
   };
 
   const handleCollegeEndChange = (nextEnd: string) => {
@@ -146,98 +116,22 @@ export default function Register() {
     } else {
       setCollegeEnd(nextEnd);
     }
-    rebuildSlotsFromCollegeRange(collegeStart, safeEnd);
+
+    const adjustedWeekend = enforceWeekendRange(weekendCollegeStart, weekendCollegeEnd, collegeStart, safeEnd);
+    setWeekendCollegeStart(adjustedWeekend.start);
+    setWeekendCollegeEnd(adjustedWeekend.end);
   };
 
-  const applySlotBoundaryChange = (slotIndex: number, key: 'start' | 'end', newValue: string) => {
-    // Validate and normalize the time format
-    if (!isValidTimeFormat(newValue)) return;
-    const normalizedValue = normalizeTime(newValue);
-    
-    setSlots((prev) => {
-      if (!prev[slotIndex]) return prev;
-
-      const updated = prev.map((slot) => ({ ...slot }));
-      // Preserve durations of future slots (accounting for irregular breaks/gaps)
-      const futureDurations = updated.slice(slotIndex + 1).map((slot) => {
-        const duration = toMinutes(slot.end) - toMinutes(slot.start);
-        return Math.max(15, isFinite(duration) ? duration : 60); // Enforce 15-min minimum, fallback to 60
-      });
-
-      if (key === 'start') {
-        // When start changes, adjust end if needed and cascade
-        updated[slotIndex].start = normalizedValue;
-        if (slotIndex > 0) {
-          updated[slotIndex - 1].end = normalizedValue; // Previous slot ends when current starts
-        }
-
-        const startMin = toMinutes(updated[slotIndex].start);
-        const endMin = toMinutes(updated[slotIndex].end);
-        if (endMin <= startMin) {
-          updated[slotIndex].end = toTimeString(startMin + 60);
-        }
-      } else {
-        // When end changes, cascade to next slots
-        updated[slotIndex].end = normalizedValue;
-        const startMin = toMinutes(updated[slotIndex].start);
-        const endMin = toMinutes(updated[slotIndex].end);
-        // Enforce min duration of 15 minutes
-        if (endMin <= startMin) {
-          updated[slotIndex].end = toTimeString(startMin + 15);
-        }
-      }
-
-      // Cascade changes to all future slots
-      let cursor = toMinutes(updated[slotIndex].end);
-      for (let i = slotIndex + 1; i < updated.length; i++) {
-        const duration = futureDurations[i - (slotIndex + 1)] ?? 60;
-        updated[i].start = toTimeString(cursor);
-        updated[i].end = toTimeString(cursor + duration);
-        cursor += duration;
-      }
-
-      // Update college start/end to match slot range
-      if (updated.length > 0) {
-        setCollegeStart(updated[0].start);
-        setCollegeEnd(updated[updated.length - 1].end);
-      }
-
-      return updated;
-    });
+  const handleWeekendCollegeStartChange = (nextStart: string) => {
+    const adjustedWeekend = enforceWeekendRange(nextStart, weekendCollegeEnd, collegeStart, collegeEnd);
+    setWeekendCollegeStart(adjustedWeekend.start);
+    setWeekendCollegeEnd(adjustedWeekend.end);
   };
 
-  const addSlot = () => {
-    setSlots((prev) => {
-      if (prev.length === 0) {
-        syncGridWithSlots(1);
-        return [{ start: '09:00', end: '10:00' }];
-      }
-      const lastSlot = prev[prev.length - 1];
-      const lastEndMins = toMinutes(lastSlot.end);
-      const newStart = toTimeString(lastEndMins);
-      const newEnd = toTimeString(lastEndMins + 60);
-      const updated = [...prev, { start: newStart, end: newEnd }];
-      syncGridWithSlots(updated.length);
-      return updated;
-    });
-  };
-
-  const removeSlot = (slotIndex: number) => {
-    setSlots((prev) => {
-      const updated = prev.filter((_, idx) => idx !== slotIndex);
-      syncGridWithSlots(updated.length);
-      
-      // Update college times
-      if (updated.length > 0) {
-        setCollegeStart(updated[0].start);
-        setCollegeEnd(updated[updated.length - 1].end);
-      } else {
-        setCollegeStart('09:00');
-        setCollegeEnd('10:00');
-      }
-      
-      return updated;
-    });
+  const handleWeekendCollegeEndChange = (nextEnd: string) => {
+    const adjustedWeekend = enforceWeekendRange(weekendCollegeStart, nextEnd, collegeStart, collegeEnd);
+    setWeekendCollegeStart(adjustedWeekend.start);
+    setWeekendCollegeEnd(adjustedWeekend.end);
   };
 
   const handleSubjectAdd = () => {
@@ -251,44 +145,25 @@ export default function Register() {
     setSubjects((prev) => prev.filter((item) => item !== subject));
   };
 
-  const getCellLabel = (value: number | null) => {
-    if (value === null) return '';
-    if (value === -1) return 'Break';
-    return subjects[value] ?? '';
-  };
-
-  const handleCellClick = (dayIndex: number, slotIndex: number) => {
-    setScheduleGrid((prev) => {
-      const next = prev.map((day) => [...day]);
-      const current = next[dayIndex]?.[slotIndex] ?? null;
-      let updatedValue: number | null = null;
-
-      if (subjects.length === 0) {
-        updatedValue = current === -1 ? null : -1;
-      } else if (current === null) {
-        updatedValue = 0;
-      } else if (current === -1) {
-        updatedValue = 0;
-      } else if (current < subjects.length - 1) {
-        updatedValue = current + 1;
-      } else {
-        updatedValue = -1;
-      }
-
-      next[dayIndex][slotIndex] = updatedValue;
-      return next;
-    });
-  };
-
-  const slotCount = useMemo(() => slots.length, [slots]);
-
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="manga-shell min-h-screen flex">
+      <div className="manga-grain" aria-hidden="true" />
+      <div className="manga-speed-lines hidden lg:block" aria-hidden="true" />
+
       {/* Left Sidebar - Progress */}
-      <div className="w-1/3 bg-primary border-r-4 border-black p-12 hidden lg:flex flex-col relative overflow-hidden">
-        <div className="absolute inset-0"
-             style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, black 2px, transparent 0)', backgroundSize: '32px 32px', opacity: 0.1 }}>
+      <div className="relative hidden w-1/3 flex-col overflow-hidden border-r-4 border-black bg-[#ffd43b] p-12 lg:flex">
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage:
+              'radial-gradient(circle at 2px 2px, rgba(0,0,0,0.38) 2px, transparent 0), linear-gradient(135deg, rgba(255,255,255,0.18) 0 50%, transparent 50% 100%)',
+            backgroundSize: '18px 18px, 100% 100%',
+            opacity: 0.22,
+          }}
+        >
         </div>
+        <div className="absolute -left-16 top-10 h-56 w-56 rounded-full border-4 border-black bg-white/30" aria-hidden="true" />
+        <div className="absolute bottom-[-4rem] right-[-3rem] h-80 w-80 rounded-full border-4 border-black bg-accent/25" aria-hidden="true" />
         
         <div className="relative z-10 flex-1 flex flex-col">
           <div className="flex items-center gap-3 mb-10">
@@ -336,13 +211,22 @@ export default function Register() {
       </div>
 
       {/* Right Content - Forms */}
-      <div className="relative flex-1 bg-[#faf9f6] p-4 sm:p-6 lg:p-10">
-        <div className="absolute inset-0" style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 19px, rgba(0,0,0,0.05) 19px, rgba(0,0,0,0.05) 20px)', backgroundSize: '20px 20px' }} />
+      <div className="relative flex-1 overflow-hidden bg-[#faf9f6] p-4 sm:p-6 lg:p-10">
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage:
+              'repeating-linear-gradient(0deg, transparent, transparent 19px, rgba(0,0,0,0.05) 19px, rgba(0,0,0,0.05) 20px), radial-gradient(circle at 1.5px 1.5px, rgba(0,0,0,0.08) 1.5px, transparent 0)',
+            backgroundSize: '20px 20px, 24px 24px',
+          }}
+        />
+        <div className="absolute -right-10 top-12 h-40 w-40 rounded-full border-4 border-black bg-secondary/30" aria-hidden="true" />
+        <div className="absolute bottom-[-3rem] left-[-2rem] h-72 w-72 rounded-full border-4 border-black bg-primary/20" aria-hidden="true" />
         
         <div className="relative z-10 mx-auto w-full max-w-5xl">
           
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-             <div className="inline-block bg-accent text-white px-4 py-2 font-black uppercase tracking-widest border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]">
+             <div className="manga-banner bg-black px-4 py-2 text-white">
                Step 0{currentStep} / 0{STEPS.length}
              </div>
              {currentStep > 1 && (
@@ -352,7 +236,7 @@ export default function Register() {
              )}
           </div>
 
-          <form onSubmit={handleSubmit} className="card-brutal bg-white p-5 sm:p-7 lg:p-9 shadow-[10px_10px_0px_rgba(0,0,0,1)]">
+          <form onSubmit={handleSubmit} className="manga-card bg-white p-5 sm:p-7 lg:p-9">
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black uppercase tracking-tight mb-2">
               {STEPS[currentStep - 1].title}
             </h1>
@@ -494,6 +378,23 @@ export default function Register() {
                      </div>
                    </div>
 
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
+                     <div className="space-y-2">
+                       <label className="font-black uppercase tracking-wider text-xs sm:text-sm block">Weekend College Start</label>
+                       <input type="time" value={weekendCollegeStart} onChange={(e) => handleWeekendCollegeStartChange(e.target.value)} className="input-brutal w-full" />
+                     </div>
+                     <div className="space-y-2">
+                       <label className="font-black uppercase tracking-wider text-xs sm:text-sm block">Weekend College End</label>
+                       <input type="time" value={weekendCollegeEnd} onChange={(e) => handleWeekendCollegeEndChange(e.target.value)} className="input-brutal w-full" />
+                     </div>
+                   </div>
+
+                   <div className="border-4 border-black bg-[#fff7d1] px-4 py-3">
+                     <p className="text-[11px] font-black uppercase tracking-wider text-black">
+                       Weekend college timing is automatically kept shorter than regular day college timing.
+                     </p>
+                   </div>
+
                    <div className="space-y-3">
                      <label className="font-black uppercase tracking-wider text-sm block">Subjects</label>
                      <div className="flex gap-2">
@@ -527,90 +428,7 @@ export default function Register() {
                           </button>
                         ))}
                      </div>
-                     <p className="text-[11px] font-bold uppercase tracking-wider text-gray-600">
-                       Click each grid cell to cycle through subjects and then break.
-                     </p>
                    </div>
-
-                   {/* Weekly Schedule Grid Mock */}
-                   <div className="space-y-2 border-4 border-black p-4 bg-gray-50 overflow-x-auto">
-                     <div className="flex items-center justify-between gap-2 sm:gap-4 mb-3 sm:mb-4">
-                       <label className="font-black uppercase tracking-wider text-xs sm:text-sm">Weekly Grid (Click to assign)</label>
-                       <button
-                         type="button"
-                         onClick={addSlot}
-                         className="btn-brutal bg-accent text-white text-xs px-2 sm:px-3 py-1 flex items-center gap-1 flex-shrink-0 whitespace-nowrap"
-                         title="Add a new lecture slot"
-                       >
-                         <Plus className="w-3 h-3 sm:w-4 sm:h-4" /> Add Slot
-                       </button>
-                     </div>
-                     <div className="flex gap-1 min-w-[550px] sm:min-w-[650px] lg:min-w-auto overflow-x-auto">
-                       <div className="w-32 sm:w-40 lg:w-52 shrink-0"></div>
-                       {WEEK_DAYS.map((d, idx) => (
-                         <div key={`${d}-${idx}`} className="flex-1 text-center font-black bg-black text-white">{d}</div>
-                       ))}
-                     </div>
-                     {slots.map((slot, slotIndex) => (
-                       <div key={`${slot.start}-${slotIndex}`} className="flex gap-1 mt-1 min-w-[550px] sm:min-w-[650px] lg:min-w-auto items-stretch">
-                         <div className="w-32 sm:w-40 lg:w-52 flex items-center gap-0.5 sm:gap-1 shrink-0">
-                           <input
-                             type="time"
-                             value={slot.start}
-                             onChange={(e) => applySlotBoundaryChange(slotIndex, 'start', e.target.value)}
-                             className="input-brutal w-full p-0.5 sm:p-1 text-xs"
-                           />
-                           <span className="font-black text-xs hidden sm:inline">-</span>
-                           <input
-                             type="time"
-                             value={slot.end}
-                             onChange={(e) => applySlotBoundaryChange(slotIndex, 'end', e.target.value)}
-                             className="input-brutal w-full p-0.5 sm:p-1 text-xs"
-                           />
-                         </div>
-                         {WEEK_DAYS.map((d, dayIndex) => {
-                           const cellValue = scheduleGrid[dayIndex]?.[slotIndex] ?? null;
-                           const label = getCellLabel(cellValue);
-                           const isBreak = cellValue === -1;
-                           return (
-                             <button
-                               key={`${d}${dayIndex}-${slotIndex}`}
-                               type="button"
-                               onClick={() => handleCellClick(dayIndex, slotIndex)}
-                               className={`flex-1 h-10 border-2 border-black transition-colors relative ${
-                                 isBreak
-                                   ? 'bg-gray-200 hover:bg-gray-300'
-                                   : label
-                                     ? 'bg-primary hover:bg-yellow-300'
-                                     : 'bg-white hover:bg-primary'
-                               }`}
-                               title={label || 'Click to assign'}
-                             >
-                               {label && (
-                                 <span className={`absolute inset-x-0 bottom-0 truncate px-1 text-[10px] font-bold text-center border-t-2 border-black ${isBreak ? 'bg-gray-500 text-white' : 'bg-accent text-white'}`}>
-                                   {label}
-                                 </span>
-                               )}
-                             </button>
-                           );
-                         })}
-                         {slots.length > 1 && (
-                           <button
-                             type="button"
-                             onClick={() => removeSlot(slotIndex)}
-                             className="w-7 h-10 sm:w-8 bg-red-200 border-2 border-black text-xs sm:text-sm font-bold text-red-700 hover:bg-red-300 transition-colors flex-shrink-0 hover:scale-110"
-                             title="Remove this slot"
-                           >
-                             ✕
-                           </button>
-                         )}
-                       </div>
-                     ))}
-                   </div>
-
-                   <p className="text-[11px] font-bold uppercase tracking-wider text-gray-600">
-                     Total slots: {slotCount} | Click cells repeatedly to cycle subjects and break.
-                   </p>
 
                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                      <div className="space-y-2">
