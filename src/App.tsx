@@ -13,6 +13,7 @@ import Viva from './pages/Viva';
 import Chat from './pages/Chat';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
+import DemoPage from './pages/DemoPage';
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/demo" element={<DemoPage />} />
           <Route element={<DashboardLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/tree" element={<KnowledgeTree />} />
