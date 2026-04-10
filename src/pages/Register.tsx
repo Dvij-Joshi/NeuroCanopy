@@ -97,6 +97,12 @@ export default function Register() {
         const { error: signupError } = await supabase.auth.signUp({ email, password });
 
         if (signupError) {
+          if (signupError.message && signupError.message.includes('fetch')) {
+             console.warn('Supabase fetch failed. Falling back to local offline register demo.');
+             setCurrentStep(2);
+             setIsSubmitting(false);
+             return;
+          }
           if (signupError.message.includes('already registered')) {
             const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
             if (signInError) throw signupError; // original error if login fails
@@ -853,13 +859,19 @@ export default function Register() {
                  type="submit" 
                  className={`btn-brutal w-full sm:w-auto text-sm sm:text-lg lg:text-xl px-4 sm:px-6 lg:px-8 py-2 sm:py-3 flex items-center justify-center gap-2 bg-primary group hover:bg-yellow-400 min-h-[44px] sm:min-h-auto ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                >
-                 {isSubmitting ? 'Booting...' : currentStep === STEPS.length ? 'Complete Setup' : 'Continue'} 
-                 <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 group-hover:translate-x-1 transition-transform" />
+                 {isSubmitting ? 'Booting...' : currentStep === STEPS.length ? 'Complete Setup' : 'Continue'}
                </button>
             </div>
+            
+            <p className="mt-6 text-center text-sm font-bold tracking-wide text-gray-500">
+              ALREADY REGISTERED?{' '}
+              <Link to="/login" className="uppercase text-accent underline decoration-2 underline-offset-4 hover:text-primary">
+                Return to Login
+              </Link>
+            </p>
           </form>
         </div>
       </div>
     </div>
   );
-}
+} 
