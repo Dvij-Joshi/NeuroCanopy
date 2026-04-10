@@ -14,6 +14,7 @@ import Chat from './pages/Chat';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import DemoPage from './pages/DemoPage';
+import DemoSyllabus from './pages/DemoSyllabus';
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/demo" element={<DemoPage />} />
+          <Route path="/demo-syllabus" element={<DemoSyllabus />} />
           <Route element={<DashboardLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/tree" element={<KnowledgeTree />} />
