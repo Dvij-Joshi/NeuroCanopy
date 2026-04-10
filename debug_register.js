@@ -96,47 +96,12 @@ export default function Register() {
   useEffect(() => {
     const initializeProfileState = async () => {
       try {
-        // Load draft data immediately from localStorage first
-        const draftStr = localStorage.getItem('nc_reg_draft');
-        if (draftStr) {
-          try {
-            const d = JSON.parse(draftStr);
-            if (d.currentStep && d.currentStep >= 1) setCurrentStep(d.currentStep);
-            if (d.email) setEmail(d.email);
-            if (d.fullName) setFullName(d.fullName);
-            if (d.university) setUniversity(d.university);
-            if (d.major) setMajor(d.major);
-            if (d.academicYear) setAcademicYear(d.academicYear);
-            if (d.chronotype) setChronotype(d.chronotype);
-            if (d.focusDuration) setFocusDuration(d.focusDuration);
-            if (d.wakeTime) setWakeTime(d.wakeTime);
-            if (d.sleepTime) setSleepTime(d.sleepTime);
-            if (d.dailyAdminBuffer) setDailyAdminBuffer(d.dailyAdminBuffer);
-            if (d.collegeStart) setCollegeStart(d.collegeStart);
-            if (d.collegeEnd) setCollegeEnd(d.collegeEnd);
-            if (d.weekendCollegeStart) setWeekendCollegeStart(d.weekendCollegeStart);
-            if (d.weekendCollegeEnd) setWeekendCollegeEnd(d.weekendCollegeEnd);
-            if (d.subjects) setSubjects(d.subjects);
-            if (d.nextExam) setNextExam(d.nextExam);
-            if (d.minAttendance) setMinAttendance(d.minAttendance);
-            if (d.livingStatus) setLivingStatus(d.livingStatus);
-            if (d.lifestyleAnchors) setLifestyleAnchors(d.lifestyleAnchors);
-            if (d.commuteDuration) setCommuteDuration(d.commuteDuration);
-            if (d.choresErrands) setChoresErrands(d.choresErrands);
-            if (d.socialLeisure) setSocialLeisure(d.socialLeisure);
-            if (d.messBreakfast) setMessBreakfast(d.messBreakfast);
-            if (d.messLunch) setMessLunch(d.messLunch);
-            if (d.messDinner) setMessDinner(d.messDinner);
-          } catch(e) {}
-        }
-      } catch(e) {}
-
-      try {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
           console.error("Session check failed:", sessionError.message);
-          return; // Do NOT signOut here just in case they are halfway through step 1 with local state 
+          await supabase.auth.signOut();
+          return;
         }
 
         if (session?.user) {
@@ -153,31 +118,36 @@ export default function Register() {
           }
 
           if (profile) {
-            // DB takes precedence over localStorage
+            if (profile.onboarding_completed) {
+              console.log("Onboarding already completed, redirecting to Dashboard");
+              navigate('/');
+              return;
+            }
+
+            // Populate state with whatever was saved
             if (session.user.email) setEmail(session.user.email);
             if (profile.full_name) setFullName(profile.full_name);
             if (profile.university) setUniversity(profile.university);
             if (profile.major) setMajor(profile.major);
             if (profile.academic_year) setAcademicYear(profile.academic_year);
             if (profile.chronotype) setChronotype(profile.chronotype);
-            if (profile.focus_duration) setFocusDuration(profile.focus_duration);
-            if (profile.wake_time) setWakeTime(profile.wake_time.substring(0, 5));
-            if (profile.sleep_time) setSleepTime(profile.sleep_time.substring(0, 5));
-            if (profile.chore_buffer) setDailyAdminBuffer(profile.chore_buffer);
-            if (profile.college_start_time) setCollegeStart(profile.college_start_time.substring(0, 5));
-            if (profile.college_end_time) setCollegeEnd(profile.college_end_time.substring(0, 5));
-            if (profile.timetable?.weekend_start) setWeekendCollegeStart(profile.timetable.weekend_start);
-            if (profile.timetable?.weekend_end) setWeekendCollegeEnd(profile.timetable.weekend_end);
-            if (profile.timetable?.subjects) setSubjects(profile.timetable.subjects);
-            
-            const savedStep = session.user.user_metadata?.current_onboarding_step;
-            if (savedStep && savedStep > 1) {
-               setCurrentStep(savedStep);
-            } else {
-               // Fallback: If profile exists but step is missing/null, they already finished step 1 (auth)
-               setCurrentStep(2);
+            if (profile.focus_duration_minutes) setFocusDuration(profile.focus_duration_minutes);
+            if (profile.wake_time) setWakeTime(profile.wake_time);
+            if (profile.sleep_time) setSleepTime(profile.sleep_time);
+            if (profile.daily_admin_buffer) setDailyAdminBuffer(profile.daily_admin_buffer);
+            if (profile.college_start) setCollegeStart(profile.college_start);
+            if (profile.college_end) setCollegeEnd(profile.college_end);
+            if (profile.weekend_college_start) setWeekendCollegeStart(profile.weekend_college_start);
+            if (profile.weekend_college_end) setWeekendCollegeEnd(profile.weekend_college_end);
+            if (profile.subjects) setSubjects(profile.subjects);
+            // If they reached step N, auto-advance them
+            if (profile.current_onboarding_step && profile.current_onboarding_step > 1) {
+               setCurrentStep(profile.current_onboarding_step);
             }
           }
+        } else {
+          // If no session is active, it means they are starting absolutely fresh at Step 1
+          await supabase.auth.signOut(); 
         }
       } catch (error) {
         console.error('Unexpected error loading profile during registration:', error);
@@ -225,13 +195,8 @@ export default function Register() {
         const { data: signupData, error: signupError } = await supabase.auth.signUp({ email, password });
 
         if (signupError) {
-            setSignupAttempts(prev => prev + 1);
-            if (signupError.message && signupError.message.includes('fetch')) { 
-               console.warn('Supabase fetch failed. Falling back to local offline register demo.');
-               setCurrentStep(2);
-               setIsSubmitting(false);
-               return;
-            }
+          setSignupAttempts(prev => prev + 1);
+          if (signupError.message.includes('already registered')) {
             throw new Error("This email is already registered. Only 1 account is allowed per email. Please log in.");
           } else {
             throw signupError;
@@ -252,9 +217,6 @@ export default function Register() {
             id: sessionData.session.user.id,
             email: email
           }, { onConflict: 'id' });
-          await supabase.auth.updateUser({
-            data: { current_onboarding_step: 2 }
-          });
         }
       } catch (err: any) {
         setAuthError(err.message || 'An error occurred during account creation.');
@@ -281,7 +243,7 @@ export default function Register() {
                academic_year: academicYear,
                chronotype: chronotype,
                focus_duration: focusDuration,
-               avatar_url: null 
+               avatar_url: avatarFile ? URL.createObjectURL(avatarFile) : null 
              };
           }
           // Bio-Rhythms Save
@@ -328,26 +290,21 @@ export default function Register() {
              };
           }
           
-            if (Object.keys(updatePayload).length > 0) {
-              const { error: updateError } = await supabase
-                .from('profiles')
-                .update(updatePayload)
-                .eq('id', userId);
-                
-              if (updateError) {
-                console.error(`Error saving step ${currentStep} data:`, updateError);
-              }
+          if (Object.keys(updatePayload).length > 0) {
+            const { error: updateError } = await supabase
+              .from('profiles')
+              .update({ ...updatePayload, current_onboarding_step: currentStep + 1 })
+              .eq('id', userId);
+              
+            if (updateError) {
+              console.error(`Error saving step ${currentStep} data:`, updateError);
             }
-
-            // Save form progress exactly at the Auth layer so no schema dependencies break.
-            await supabase.auth.updateUser({
-              data: { current_onboarding_step: currentStep + 1 }
-            });
           }
-        } catch (err) {
-          console.error("Silent save failed:", err);
         }
+      } catch (err) {
+        console.error("Silent save failed:", err);
       }
+    }
 
     setIsSubmitting(false);
     setCurrentStep(prev => Math.min(prev + 1, STEPS.length));
@@ -410,7 +367,7 @@ export default function Register() {
                  social_leisure_mins: socialLeisure,
                  anchors: lifestyleAnchors
                },
-               avatar_url: null // Mocking URL until Storage configured
+               avatar_url: avatarFile ? URL.createObjectURL(avatarFile) : null // Mocking URL until Storage configured
           };
 
           const { error: profileError } = await supabase
@@ -422,12 +379,6 @@ export default function Register() {
           }
 
           localStorage.removeItem('nc_reg_draft');
-          
-          await supabase.auth.updateUser({
-            data: { current_onboarding_step: STEPS.length + 1 }
-          });
-          
-          navigate('/');
         }
 
       } catch (err: any) {
@@ -1101,19 +1052,13 @@ export default function Register() {
                  type="submit" 
                  className={`btn-brutal w-full sm:w-auto text-sm sm:text-lg lg:text-xl px-4 sm:px-6 lg:px-8 py-2 sm:py-3 flex items-center justify-center gap-2 bg-primary group hover:bg-yellow-400 min-h-[44px] sm:min-h-auto ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                >
-                 {isSubmitting ? 'Booting...' : currentStep === STEPS.length ? 'Complete Setup' : 'Continue'}
+                 {isSubmitting ? 'Booting...' : currentStep === STEPS.length ? 'Complete Setup' : 'Continue'} 
+                 <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 group-hover:translate-x-1 transition-transform" />
                </button>
             </div>
-            
-            <p className="mt-6 text-center text-sm font-bold tracking-wide text-gray-500">
-              ALREADY REGISTERED?{' '}
-              <Link to="/login" className="uppercase text-accent underline decoration-2 underline-offset-4 hover:text-primary">
-                Return to Login
-              </Link>
-            </p>
           </form>
         </div>
       </div>
     </div>
   );
-} 
+}

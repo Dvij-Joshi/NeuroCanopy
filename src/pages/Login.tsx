@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Network, Zap, ShieldCheck, Sparkles, Timer } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -9,9 +9,36 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [loginAttempts, setLoginAttempts] = useState(0);
+  const [isLocked, setIsLocked] = useState(false);
+
+  useEffect(() => {
+    // Security Route Guard: Clear any stale session if the user explicitly navigates to Login.
+    // This prevents the "auto-redirect" loop if they just wanted to log out or switch accounts.
+    const clearSession = async () => {
+      await supabase.auth.signOut();
+    };
+    clearSession();
+  }, []);
+
+  useEffect(() => {
+    // Security: Soft rate limit in frontend (Supabase handles hard limit natively)
+    if (loginAttempts >= 5) {
+      setIsLocked(true);
+      setError("Too many failed attempts. Try again in 60 seconds to protect your account.");
+      const timer = setTimeout(() => {
+        setIsLocked(false);
+        setLoginAttempts(0);
+        setError(null);
+      }, 60000);
+      return () => clearTimeout(timer);
+    }
+  }, [loginAttempts]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLocked) return;
+
     setIsLoading(true);
     setError(null);
     
@@ -22,6 +49,7 @@ export default function Login() {
       });
 
       if (error) {
+        setLoginAttempts(prev => prev + 1);
         if (error.message.includes('fetch')) {
            console.warn('Supabase fetch failed. Falling back to local offline login demo.');
            navigate('/dashboard');
@@ -31,10 +59,25 @@ export default function Login() {
       }
       
       if (data.session) {
-        navigate('/dashboard');
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('lifestyle_activities')
+          .eq('id', data.session.user.id)
+          .maybeSingle();
+          
+        if (profile && profile.lifestyle_activities) {
+          navigate('/dashboard');
+        } else {
+          // Profile is incomplete. Route them back to registration to resume.
+          navigate('/register');
+        }
       }
     } catch (error: any) {
-      setError(error.message || 'Login failed. Please check your credentials.');
+      if (error.message.includes('Invalid login credentials')) {
+        setError(`Login failed. Check your email and password. (${5 - loginAttempts} attempts left)`);
+      } else {
+        setError(error.message || 'Login failed. Please check your credentials.');
+      }
     } finally {
       setIsLoading(false);
     }
