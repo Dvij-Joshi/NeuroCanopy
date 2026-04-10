@@ -1,13 +1,36 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Network, Zap, ShieldCheck, Sparkles, Timer } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 export default function Login() {
   const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate('/dashboard');
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+      
+      if (data.session) {
+        navigate('/dashboard');
+      }
+    } catch (error: any) {
+      setError(error.message || 'Login failed. Please check your credentials.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -95,11 +118,24 @@ export default function Login() {
                 <p className="mt-1 font-medium text-gray-600">Welcome back. Authenticate to continue your plan.</p>
               </div>
 
+              {error && (
+                <div className="mb-4 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 font-bold" role="alert">
+                  <p>{error}</p>
+                </div>
+              )}
+
               <div className="space-y-5">
                 <div className="space-y-2">
                   <label className="text-sm font-bold uppercase tracking-wider">Authorized Email</label>
                   <div className="manga-panel-soft bg-white px-2 py-1">
-                    <input type="email" placeholder="student@university.edu" className="input-brutal w-full bg-transparent px-4 py-3 text-base focus:bg-white" required />
+                    <input 
+                      type="email" 
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="student@university.edu" 
+                      className="input-brutal w-full bg-transparent px-4 py-3 text-base focus:bg-white focus:outline-none" 
+                      required 
+                    />
                   </div>
                 </div>
 
@@ -111,13 +147,20 @@ export default function Login() {
                     </Link>
                   </label>
                   <div className="manga-panel-soft bg-white px-2 py-1">
-                    <input type="password" placeholder="••••••••" className="input-brutal w-full bg-transparent px-4 py-3 text-base focus:bg-white" required />
+                    <input 
+                      type="password" 
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••" 
+                      className="input-brutal w-full bg-transparent px-4 py-3 text-base focus:bg-white focus:outline-none" 
+                      required 
+                    />
                   </div>
                 </div>
               </div>
 
-              <button type="submit" className="btn-brutal mt-6 flex w-full items-center justify-center gap-2 bg-primary py-3 text-lg hover:bg-yellow-400">
-                Authenticate <ArrowRight className="h-5 w-5" />
+              <button disabled={isLoading} type="submit" className={`btn-brutal mt-6 flex w-full items-center justify-center gap-2 bg-primary py-3 text-lg hover:bg-yellow-400 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                {isLoading ? 'Authenticating...' : 'Authenticate'} <ArrowRight className="h-5 w-5" />
               </button>
 
               <p className="mt-5 text-center text-sm font-bold">
