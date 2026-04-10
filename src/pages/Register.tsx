@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Network, ArrowRight, ArrowLeft, CheckCircle2, User, Brain, Activity, BookOpen, Clock, Layers, Upload, Plus } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 const STEPS = [
   { id: 1, title: 'Account', icon: User, desc: 'Login details' },
@@ -31,35 +32,264 @@ export default function Register() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
 
-  // Quick State Mocks for Interactive Feel
-  const [energyPattern, setEnergyPattern] = useState('Standard');
-  const [maxFocus, setMaxFocus] = useState('45 min');
-  const [livingStatus, setLivingStatus] = useState('Day Scholar');
-  const [lifestyleAnchors, setLifestyleAnchors] = useState(['Gym']);
+  // Supabase Auth States
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Identity & Cognitive States (Step 2)
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [fullName, setFullName] = useState('');
+  const [university, setUniversity] = useState('');
+  const [major, setMajor] = useState('');
+  const [academicYear, setAcademicYear] = useState('Year 1');
+  const [chronotype, setChronotype] = useState('STANDARD');
+  const [focusDuration, setFocusDuration] = useState(45);
+
+  // Bio-Rhythms States (Step 3)
+  const [wakeTime, setWakeTime] = useState('07:00');
+  const [sleepTime, setSleepTime] = useState('23:30');
   const [dailyAdminBuffer, setDailyAdminBuffer] = useState(60);
-  const [commuteDuration, setCommuteDuration] = useState(45);
-  const [choresErrands, setChoresErrands] = useState(45);
-  const [socialLeisure, setSocialLeisure] = useState(120);
-  const [subjects, setSubjects] = useState(['Maths', 'Operating Systems', 'Data Structures']);
-  const [newSubject, setNewSubject] = useState('');
+
+  // Logistics & Routine States (Steps 4-6)
   const [collegeStart, setCollegeStart] = useState('09:00');
   const [collegeEnd, setCollegeEnd] = useState('16:00');
   const [weekendCollegeStart, setWeekendCollegeStart] = useState('10:00');
   const [weekendCollegeEnd, setWeekendCollegeEnd] = useState('14:00');
+  const [subjects, setSubjects] = useState<string[]>(['Maths', 'Operating Systems', 'Data Structures']);
+  const [syllabusFiles, setSyllabusFiles] = useState<Record<string, File | null>>({});
+  const [newSubject, setNewSubject] = useState('');
+  const [nextExam, setNextExam] = useState('');
+  const [minAttendance, setMinAttendance] = useState(75);
 
-  const nextStep = () => setCurrentStep(prev => Math.min(prev + 1, STEPS.length));
-  const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
-  const handleSubmit = (e: React.FormEvent) => {
+  const [livingStatus, setLivingStatus] = useState('Hosteler');
+  const [lifestyleAnchors, setLifestyleAnchors] = useState<string[]>(['Gym']);
+  const [commuteDuration, setCommuteDuration] = useState(45);
+  const [choresErrands, setChoresErrands] = useState(45);
+  const [socialLeisure, setSocialLeisure] = useState(120);
+  const [messBreakfast, setMessBreakfast] = useState('08:00');
+  const [messLunch, setMessLunch] = useState('13:00');
+  const [messDinner, setMessDinner] = useState('20:00');
+
+  const [newAnchor, setNewAnchor] = useState('');
+
+  const nextStep = async () => {
+    setAuthError(null);
+    setIsSubmitting(true);
+
+    // Basic validation and Auth signup on Step 1
+    if (currentStep === 1) {
+      if (password !== confirmPassword) {
+        setAuthError("Passwords do not match");
+        setIsSubmitting(false);
+        return;
+      }
+      if (password.length < 6) {
+        setAuthError("Password must be at least 6 characters");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Attempt to actually sign up the user at Step 1
+      try {
+        const { error: signupError } = await supabase.auth.signUp({ email, password });
+
+        if (signupError) {
+          if (signupError.message.includes('already registered')) {
+            const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+            if (signInError) throw signupError; // original error if login fails
+          } else {
+            throw signupError;
+          }
+        }
+        
+        // Let's initialize their profile row.
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData?.session?.user) {
+          await supabase.from('profiles').upsert({
+            id: sessionData.session.user.id,
+            email: email
+          }, { onConflict: 'id' });
+        }
+      } catch (err: any) {
+        setAuthError(err.message || 'An error occurred during account creation.');
+        setIsSubmitting(false);
+        return; // Halt progression to step 2
+      }
+    }
+
+    // Incremental Database Saves for progressive Steps
+    if (currentStep > 1) {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const userId = sessionData?.session?.user?.id;
+        
+        if (userId) {
+          let updatePayload = {};
+          
+          // Identity & Cognitive Save
+          if (currentStep === 2) {
+             updatePayload = {
+               full_name: fullName,
+               university: university,
+               major: major,
+               academic_year: academicYear,
+               chronotype: chronotype,
+               focus_duration: focusDuration,
+               avatar_url: avatarFile ? URL.createObjectURL(avatarFile) : null 
+             };
+          }
+          // Bio-Rhythms Save
+          else if (currentStep === 3) {
+             updatePayload = {
+               wake_time: wakeTime + ':00',
+               sleep_time: sleepTime + ':00',
+               chore_buffer: dailyAdminBuffer,
+             };
+          }
+          // Academics Save
+          else if (currentStep === 4) {
+             updatePayload = {
+               college_start_time: collegeStart + ':00',
+               college_end_time: collegeEnd + ':00',
+               min_attendance: minAttendance,
+               next_exam_date: nextExam ? nextExam : null,
+               timetable: {
+                 weekend_start: weekendCollegeStart,
+                 weekend_end: weekendCollegeEnd,
+                 subjects: subjects
+               }
+             };
+          }
+          // Logistics Save
+          else if (currentStep === 5) {
+             let messTimingsJson = null;
+             if (livingStatus === 'Hosteler') {
+                messTimingsJson = {
+                   breakfast: messBreakfast,
+                   lunch: messLunch,
+                   dinner: messDinner
+                };
+             }
+
+             updatePayload = {
+               living_situation: livingStatus,
+               commute_minutes: livingStatus === 'Day Scholar' ? commuteDuration : 0,
+               mess_timings: messTimingsJson,
+               lifestyle_activities: { 
+                 chores_errands_mins: choresErrands, 
+                 social_leisure_mins: socialLeisure 
+               }
+             };
+          }
+          
+          if (Object.keys(updatePayload).length > 0) {
+            const { error: updateError } = await supabase
+              .from('profiles')
+              .update(updatePayload)
+              .eq('id', userId);
+              
+            if (updateError) {
+              console.error(`Error saving step ${currentStep} data:`, updateError);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Silent save failed:", err);
+      }
+    }
+
+    setIsSubmitting(false);
+    setCurrentStep(prev => Math.min(prev + 1, STEPS.length));
+  };
+  const prevStep = () => {
+    setAuthError(null);
+    setCurrentStep(prev => Math.max(prev - 1, 1));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (currentStep < STEPS.length) {
-      nextStep();
+      await nextStep();
     } else {
-      navigate('/dashboard');
+      setIsSubmitting(true);
+      setAuthError(null);
+
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const userId = sessionData?.session?.user?.id;
+
+        if (userId) {
+          // Final insert into custom `profiles` table to store all the multi-step form data.
+          
+          let messTimingsJson = null;
+          if (livingStatus === 'Hosteler') {
+            messTimingsJson = {
+               breakfast: messBreakfast,
+               lunch: messLunch,
+               dinner: messDinner
+            };
+          }
+
+          const finalPayload = {
+               id: userId, 
+               email: email,
+               full_name: fullName,
+               university: university,
+               major: major,
+               academic_year: academicYear,
+               chronotype: chronotype,
+               focus_duration: focusDuration,
+               wake_time: wakeTime + ':00',
+               sleep_time: sleepTime + ':00',
+               chore_buffer: dailyAdminBuffer,
+               living_situation: livingStatus,
+               commute_minutes: livingStatus === 'Day Scholar' ? commuteDuration : 0,
+               mess_timings: messTimingsJson,
+               college_start_time: collegeStart + ':00',
+               college_end_time: collegeEnd + ':00',
+               min_attendance: minAttendance,
+               next_exam_date: nextExam ? nextExam : null,
+               timetable: {
+                 weekend_start: weekendCollegeStart,
+                 weekend_end: weekendCollegeEnd,
+                 subjects: subjects
+               },
+               lifestyle_activities: { 
+                 chores_errands_mins: choresErrands, 
+                 social_leisure_mins: socialLeisure,
+                 anchors: lifestyleAnchors
+               },
+               avatar_url: avatarFile ? URL.createObjectURL(avatarFile) : null // Mocking URL until Storage configured
+          };
+
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .upsert(finalPayload);
+            
+          if (profileError) {
+             console.error("Error creating profile data, user auth succeeded though:", profileError);
+          }
+
+          navigate('/dashboard');
+        } else {
+          setAuthError("Session lost. Please try logging in again.");
+        }
+
+      } catch (err: any) {
+        setAuthError(err.message || 'An error occurred saving your profile.');
+      }
+      setIsSubmitting(false);
     }
   };
 
-  const toggleAnchor = (anchor: string) => {
-    setLifestyleAnchors(prev => prev.includes(anchor) ? prev.filter(a => a !== anchor) : [...prev, anchor]);
+  const handleAnchorAdd = () => {
+    const cleaned = newAnchor.trim();
+    if (!cleaned) return;
+    setLifestyleAnchors((prev) => (prev.includes(cleaned) ? prev : [...prev, cleaned]));
+    setNewAnchor('');
   };
 
   const enforceWeekendRange = (
@@ -68,41 +298,15 @@ export default function Register() {
     regularStart: string,
     regularEnd: string
   ) => {
-    const regularDuration = Math.max(60, toMinutes(regularEnd) - toMinutes(regularStart));
-    const maxWeekendDuration = Math.max(30, regularDuration - 30);
-
-    let startMins = toMinutes(proposedStart);
-    let endMins = toMinutes(proposedEnd);
-
-    if (endMins <= startMins) {
-      endMins = startMins + Math.min(60, maxWeekendDuration);
-    }
-
-    if (endMins - startMins > maxWeekendDuration) {
-      endMins = startMins + maxWeekendDuration;
-    }
-
-    if (endMins - startMins >= regularDuration) {
-      endMins = startMins + maxWeekendDuration;
-    }
-
-    if (endMins > 23 * 60 + 59) {
-      endMins = 23 * 60 + 59;
-      startMins = Math.max(0, endMins - maxWeekendDuration);
-    }
-
     return {
-      start: toTimeString(startMins),
-      end: toTimeString(endMins),
+      start: proposedStart,
+      end: proposedEnd,
     };
   };
 
   const handleCollegeStartChange = (nextStart: string) => {
-    const safeEnd = toMinutes(nextStart) >= toMinutes(collegeEnd) ? addMinutes(nextStart, 60) : collegeEnd;
     setCollegeStart(nextStart);
-    if (safeEnd !== collegeEnd) {
-      setCollegeEnd(safeEnd);
-    }
+    const safeEnd = toMinutes(nextStart) >= toMinutes(collegeEnd) ? addMinutes(nextStart, 60) : collegeEnd;
 
     const adjustedWeekend = enforceWeekendRange(weekendCollegeStart, weekendCollegeEnd, nextStart, safeEnd);
     setWeekendCollegeStart(adjustedWeekend.start);
@@ -110,12 +314,9 @@ export default function Register() {
   };
 
   const handleCollegeEndChange = (nextEnd: string) => {
+    setCollegeEnd(nextEnd);
+
     const safeEnd = toMinutes(nextEnd) <= toMinutes(collegeStart) ? addMinutes(collegeStart, 60) : nextEnd;
-    if (safeEnd !== nextEnd) {
-      setCollegeEnd(safeEnd);
-    } else {
-      setCollegeEnd(nextEnd);
-    }
 
     const adjustedWeekend = enforceWeekendRange(weekendCollegeStart, weekendCollegeEnd, collegeStart, safeEnd);
     setWeekendCollegeStart(adjustedWeekend.start);
@@ -244,6 +445,12 @@ export default function Register() {
               {STEPS[currentStep - 1].desc}
             </p>
 
+            {authError && (
+              <div className="mb-4 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 font-bold" role="alert">
+                <p>{authError}</p>
+              </div>
+            )}
+
             <div className="space-y-7 pb-2">
               
               {/* STEP 1: ACCOUNT */}
@@ -251,15 +458,37 @@ export default function Register() {
                 <div className="space-y-6">
                    <div className="space-y-2">
                      <label className="font-black uppercase tracking-wider text-sm block">University Email</label>
-                     <input type="email" placeholder="you@university.edu" className="input-brutal w-full text-base sm:text-lg" autoFocus required />
+                     <input 
+                       type="email" 
+                       value={email}
+                       onChange={(e) => setEmail(e.target.value)}
+                       placeholder="you@university.edu" 
+                       className="input-brutal w-full text-base sm:text-lg focus:outline-none" 
+                       autoFocus 
+                       required 
+                     />
                    </div>
                    <div className="space-y-2">
                      <label className="font-black uppercase tracking-wider text-sm block">Password</label>
-                     <input type="password" placeholder="••••••••" className="input-brutal w-full text-base sm:text-lg" required />
+                     <input 
+                       type="password" 
+                       value={password}
+                       onChange={(e) => setPassword(e.target.value)}
+                       placeholder="••••••••" 
+                       className="input-brutal w-full text-base sm:text-lg focus:outline-none" 
+                       required 
+                     />
                    </div>
                    <div className="space-y-2">
                      <label className="font-black uppercase tracking-wider text-sm block">Confirm Password</label>
-                     <input type="password" placeholder="••••••••" className="input-brutal w-full text-base sm:text-lg" required />
+                     <input 
+                       type="password" 
+                       value={confirmPassword}
+                       onChange={(e) => setConfirmPassword(e.target.value)}
+                       placeholder="••••••••" 
+                       className="input-brutal w-full text-base sm:text-lg focus:outline-none" 
+                       required 
+                     />
                    </div>
                    <div className="pt-4">
                       <p className="font-bold text-sm text-center">Already synced? <span className="text-accent underline font-black cursor-pointer" onClick={() => navigate('/login')}>Sign in</span></p>
@@ -271,9 +500,23 @@ export default function Register() {
               {currentStep === 2 && (
                 <div className="space-y-4 sm:space-y-6 lg:space-y-8">
                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-6 items-center bg-gray-50 p-3 sm:p-4 border-4 border-black">
-                     <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-200 border-4 border-black flex items-center justify-center shrink-0 hover:bg-primary cursor-pointer transition-colors">
-                       <Upload className="w-6 h-6 sm:w-8 sm:h-8" />
-                     </div>
+                     <label className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-200 border-4 border-black flex items-center justify-center shrink-0 hover:bg-primary cursor-pointer transition-colors overflow-hidden">
+                       <input 
+                         type="file" 
+                         accept="image/*" 
+                         className="hidden" 
+                         onChange={(e) => {
+                           if (e.target.files && e.target.files[0]) {
+                             setAvatarFile(e.target.files[0]);
+                           }
+                         }}
+                       />
+                       {avatarFile ? (
+                         <img src={URL.createObjectURL(avatarFile)} alt="Avatar" className="w-full h-full object-cover" />
+                       ) : (
+                         <Upload className="w-6 h-6 sm:w-8 sm:h-8" />
+                       )}
+                     </label>
                      <div className="text-center sm:text-left">
                        <p className="font-black uppercase text-sm sm:text-base">Upload Avatar (Opt)</p>
                        <p className="text-xs sm:text-sm font-bold text-gray-500">Max 2MB</p>
@@ -283,19 +526,19 @@ export default function Register() {
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
                      <div className="space-y-2">
                        <label className="font-black uppercase tracking-wider text-sm block">Full Name</label>
-                       <input type="text" placeholder="John Doe" className="input-brutal w-full" required />
+                       <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="John Doe" className="input-brutal w-full" required />
                      </div>
                      <div className="space-y-2">
                        <label className="font-black uppercase tracking-wider text-sm block">University</label>
-                       <input type="text" placeholder="MIT" className="input-brutal w-full" required />
+                       <input type="text" value={university} onChange={(e) => setUniversity(e.target.value)} placeholder="MIT" className="input-brutal w-full" required />
                      </div>
                      <div className="space-y-2">
                        <label className="font-black uppercase tracking-wider text-sm block">Major</label>
-                       <input type="text" placeholder="Computer Science" className="input-brutal w-full" required />
+                       <input type="text" value={major} onChange={(e) => setMajor(e.target.value)} placeholder="Computer Science" className="input-brutal w-full" required />
                      </div>
                      <div className="space-y-2">
                        <label className="font-black uppercase tracking-wider text-sm block">Academic Year</label>
-                       <select className="input-brutal w-full font-bold">
+                       <select value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} className="input-brutal w-full font-bold">
                          <option>Year 1</option><option>Year 2</option><option>Year 3</option><option>Year 4</option><option>Year 5</option>
                        </select>
                      </div>
@@ -307,9 +550,9 @@ export default function Register() {
                      <div className="space-y-2">
                        <p className="font-bold text-sm">Energy Pattern</p>
                        <div className="flex flex-col sm:flex-row gap-2">
-                         {['Early Bird', 'Standard', 'Night Owl'].map(opt => (
-                           <button type="button" key={opt} onClick={() => setEnergyPattern(opt)} className={`flex-1 py-2 px-2 sm:px-4 text-xs sm:text-sm font-bold uppercase border-4 border-black ${energyPattern === opt ? 'bg-primary translate-y-1' : 'bg-white hover:bg-gray-100 shadow-[4px_4px_0px_rgba(0,0,0,1)]'}`}>
-                             {opt}
+                         {[{label: 'Early Bird', val: 'EARLY_BIRD'}, {label: 'Standard', val: 'STANDARD'}, {label: 'Night Owl', val: 'NIGHT_OWL'}].map(opt => (
+                           <button type="button" key={opt.val} onClick={() => setChronotype(opt.val)} className={`flex-1 py-2 px-2 sm:px-4 text-xs sm:text-sm font-bold uppercase border-4 border-black ${chronotype === opt.val ? 'bg-primary translate-y-1' : 'bg-white hover:bg-gray-100 shadow-[4px_4px_0px_rgba(0,0,0,1)]'}`}>
+                             {opt.label}
                            </button>
                          ))}
                        </div>
@@ -318,9 +561,9 @@ export default function Register() {
                      <div className="space-y-2 pt-2">
                        <p className="font-bold text-sm">Max Focus Duration</p>
                        <div className="flex gap-2">
-                         {['25 min', '45 min', '90 min'].map(opt => (
-                           <button type="button" key={opt} onClick={() => setMaxFocus(opt)} className={`flex-1 py-2 font-bold uppercase border-4 border-black ${maxFocus === opt ? 'bg-accent text-white translate-y-1' : 'bg-white hover:bg-gray-100 shadow-[4px_4px_0px_rgba(0,0,0,1)]'}`}>
-                             {opt}
+                         {[25, 45, 90].map(opt => (
+                           <button type="button" key={opt} onClick={() => setFocusDuration(opt)} className={`flex-1 py-2 font-bold uppercase border-4 border-black ${focusDuration === opt ? 'bg-accent text-white translate-y-1' : 'bg-white hover:bg-gray-100 shadow-[4px_4px_0px_rgba(0,0,0,1)]'}`}>
+                             {opt} MIN
                            </button>
                          ))}
                        </div>
@@ -335,30 +578,47 @@ export default function Register() {
                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                      <div className="space-y-2">
                        <label className="font-black uppercase tracking-wider text-sm block">Wake Up Time</label>
-                       <input type="time" defaultValue="07:00" className="input-brutal w-full text-2xl text-center" required />
+                       <input 
+                         type="time" 
+                         value={wakeTime}
+                         onChange={(e) => setWakeTime(e.target.value)}
+                         className="input-brutal w-full text-2xl text-center" 
+                         required 
+                       />
                      </div>
                      <div className="space-y-2">
                        <label className="font-black uppercase tracking-wider text-sm block">Bedtime</label>
-                       <input type="time" defaultValue="23:30" className="input-brutal w-full text-2xl text-center" required />
+                       <input 
+                         type="time" 
+                         value={sleepTime}
+                         onChange={(e) => setSleepTime(e.target.value)}
+                         className="input-brutal w-full text-2xl text-center" 
+                         required 
+                       />
                      </div>
                    </div>
 
-                   <div className="space-y-4 p-6 bg-secondary border-4 border-black mt-8">
-                     <label className="font-black uppercase tracking-wider text-lg block">Daily Life Admin Buffer</label>
-                     <p className="font-bold text-sm mb-4">Time spent eating, showering, surviving.</p>
-                     <input
-                       type="range"
-                       min="30"
-                       max="180"
-                       step="15"
-                       value={dailyAdminBuffer}
-                       onChange={(e) => setDailyAdminBuffer(Number(e.target.value))}
-                       className="range-brutal"
-                     />
-                     <div className="mt-3 flex justify-between text-sm font-black">
-                       <span>30 min</span>
-                       <span className="border-2 border-black bg-white px-2 py-1">{dailyAdminBuffer} min</span>
-                       <span>180 min</span>
+                   <div className="space-y-4 p-6 bg-secondary border-4 border-black mt-8 relative overflow-hidden">
+                     <label className="font-black uppercase tracking-wider text-lg block relative z-10">Daily Life Admin Buffer</label>
+                     <p className="font-bold text-sm mb-4 relative z-10">Time spent eating, showering, surviving.</p>
+                     
+                     <div className="relative z-10">
+                       <input
+                         type="range"
+                         min="30"
+                         max="180"
+                         step="15"
+                         value={dailyAdminBuffer}
+                         onChange={(e) => setDailyAdminBuffer(Number(e.target.value))}
+                         className="range-brutal w-full"
+                       />
+                       <div className="mt-3 flex justify-between items-center text-sm font-black">
+                         <span>30 min</span>
+                         <div className="absolute left-1/2 -translate-x-1/2 -top-1 bg-white border-2 border-black px-3 py-1 font-black">
+                           {dailyAdminBuffer} min
+                         </div>
+                         <span>180 min</span>
+                       </div>
                      </div>
                    </div>
                 </div>
@@ -411,7 +671,7 @@ export default function Register() {
                          placeholder="Add subject (e.g., Physics)"
                          className="input-brutal w-full"
                        />
-                       <button type="button" onClick={handleSubjectAdd} className="btn-brutal bg-accent text-white px-4">
+                       <button type="button" onClick={handleSubjectAdd} className="btn-brutal bg-[hsl(22,100%,50%)] hover:bg-[hsl(22,100%,40%)] text-white px-6 font-black uppercase text-xl transition-colors border-4 border-black">
                          Add
                        </button>
                      </div>
@@ -421,10 +681,10 @@ export default function Register() {
                             key={sub}
                             type="button"
                             onClick={() => removeSubject(sub)}
-                            className="px-3 py-1 bg-yellow-200 border-2 border-black font-bold text-xs uppercase hover:bg-yellow-300"
+                            className="px-3 py-1 bg-[#ffd43b] border-2 border-black font-black text-xs uppercase hover:bg-yellow-300 transition-colors shadow-[2px_2px_0px_rgba(0,0,0,1)]"
                             title="Remove subject"
                           >
-                            {sub} x
+                            {sub} X
                           </button>
                         ))}
                      </div>
@@ -433,11 +693,11 @@ export default function Register() {
                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                      <div className="space-y-2">
                        <label className="font-black uppercase tracking-wider text-xs sm:text-sm block">Next Big Exam</label>
-                       <input type="date" className="input-brutal w-full text-sm" />
+                       <input type="date" value={nextExam} onChange={(e) => setNextExam(e.target.value)} className="input-brutal w-full text-sm" />
                      </div>
                      <div className="space-y-2">
                        <label className="font-black uppercase tracking-wider text-xs sm:text-sm block">Min Attendance %</label>
-                       <input type="number" defaultValue="75" className="input-brutal w-full text-sm" />
+                       <input type="number" value={minAttendance} onChange={(e) => setMinAttendance(Number(e.target.value))} className="input-brutal w-full text-sm" />
                      </div>
                    </div>
                 </div>
@@ -448,17 +708,17 @@ export default function Register() {
                 <div className="space-y-8">
                    
                    <div className="flex rounded-none border-4 border-black p-1 bg-gray-100">
-                     <button type="button" onClick={() => setLivingStatus('Hosteler')} className={`flex-1 py-2 sm:py-3 font-black uppercase text-xs sm:text-sm lg:text-lg ${livingStatus === 'Hosteler' ? 'bg-primary border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]' : ''}`}>Hosteler</button>
-                     <button type="button" onClick={() => setLivingStatus('Day Scholar')} className={`flex-1 py-2 sm:py-3 font-black uppercase text-xs sm:text-sm lg:text-lg ${livingStatus === 'Day Scholar' ? 'bg-primary border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]' : ''}`}>Day Scholar</button>
+                     <button type="button" onClick={() => setLivingStatus('Hosteler')} className={`flex-1 py-2 sm:py-3 font-black uppercase text-xs sm:text-sm lg:text-lg ${livingStatus === 'Hosteler' ? 'bg-primary border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]' : 'bg-transparent text-gray-500'}`}>Hosteler</button>
+                     <button type="button" onClick={() => setLivingStatus('Day Scholar')} className={`flex-1 py-2 sm:py-3 font-black uppercase text-xs sm:text-sm lg:text-lg ${livingStatus === 'Day Scholar' ? 'bg-primary border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]' : 'bg-transparent text-gray-500'}`}>Day Scholar</button>
                    </div>
 
                    {livingStatus === 'Hosteler' ? (
                      <div className="space-y-4 p-4 border-4 border-black bg-white">
                         <label className="font-black uppercase tracking-wider text-sm block">Mess Timings</label>
                         <div className="grid grid-cols-3 gap-2">
-                          <input type="time" defaultValue="08:00" className="input-brutal text-sm" title="Breakfast" />
-                          <input type="time" defaultValue="13:00" className="input-brutal text-sm" title="Lunch" />
-                          <input type="time" defaultValue="20:00" className="input-brutal text-sm" title="Dinner" />
+                          <input type="time" value={messBreakfast} onChange={(e) => setMessBreakfast(e.target.value)} className="input-brutal text-sm" title="Breakfast" />
+                          <input type="time" value={messLunch} onChange={(e) => setMessLunch(e.target.value)} className="input-brutal text-sm" title="Lunch" />
+                          <input type="time" value={messDinner} onChange={(e) => setMessDinner(e.target.value)} className="input-brutal text-sm" title="Dinner" />
                         </div>
                      </div>
                    ) : (
@@ -471,9 +731,9 @@ export default function Register() {
                           step="5"
                           value={commuteDuration}
                           onChange={(e) => setCommuteDuration(Number(e.target.value))}
-                          className="range-brutal"
+                          className="range-brutal w-full"
                         />
-                        <div className="text-center font-black">{commuteDuration} min</div>
+                        <div className="text-right mt-2 text-xs font-black uppercase tracking-wider">{commuteDuration} MIN</div>
                      </div>
                    )}
 
@@ -489,9 +749,9 @@ export default function Register() {
                           step="5"
                           value={choresErrands}
                           onChange={(e) => setChoresErrands(Number(e.target.value))}
-                          className="range-brutal"
+                          className="range-brutal w-full"
                         />
-                        <p className="mt-2 text-right text-xs font-black uppercase tracking-wider">{choresErrands} min</p>
+                        <p className="mt-2 text-right text-xs font-black uppercase tracking-wider">{choresErrands} MIN</p>
                       </div>
                       <div>
                         <p className="font-bold text-sm mb-2">Social & Leisure (0-240m)</p>
@@ -502,9 +762,9 @@ export default function Register() {
                           step="5"
                           value={socialLeisure}
                           onChange={(e) => setSocialLeisure(Number(e.target.value))}
-                          className="range-brutal"
+                          className="range-brutal w-full"
                         />
-                        <p className="mt-2 text-right text-xs font-black uppercase tracking-wider">{socialLeisure} min</p>
+                        <p className="mt-2 text-right text-xs font-black uppercase tracking-wider">{socialLeisure} MIN</p>
                       </div>
                    </div>
                 </div>
@@ -515,31 +775,67 @@ export default function Register() {
                 <div className="space-y-8">
                    <div className="space-y-4">
                      <label className="font-black uppercase tracking-wider text-lg block border-b-4 border-black pb-2">Upload Syllabus</label>
-                     {subjects.map(sub => (
-                       <div key={sub} className="flex justify-between items-center bg-gray-50 border-4 border-black p-3 hover:bg-primary transition-colors cursor-pointer group">
-                         <span className="font-bold uppercase tracking-widest">{sub}</span>
-                         <span className="bg-black text-white px-3 py-1 text-xs font-black uppercase group-hover:bg-white group-hover:text-black border-2 border-transparent group-hover:border-black">Upload PDF</span>
-                       </div>
-                     ))}
+                     {subjects.map(sub => {
+                       const file = syllabusFiles[sub];
+                       return (
+                         <div key={sub} className={`flex flex-col sm:flex-row justify-between sm:items-center bg-gray-50 border-4 border-black p-3 transition-colors gap-3 group ${file ? 'bg-green-50 border-green-600' : 'hover:bg-yellow-50'}`}>
+                           <span className="font-bold uppercase tracking-widest leading-tight flex-1 truncate" title={file ? file.name : sub}>
+                             {sub}
+                             {file && <span className="block text-xs text-green-700 mt-1 normal-case tracking-normal">Uploaded: {file.name}</span>}
+                           </span>
+                           <label className={`text-white px-3 py-2 text-xs font-black uppercase border-2 border-transparent transition-all cursor-pointer text-center whitespace-nowrap ${file ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-black hover:bg-primary hover:text-black'}`}>
+                             {file ? 'Change PDF' : 'Choose PDF'}
+                             <input 
+                               type="file" 
+                               accept=".pdf" 
+                               className="hidden" 
+                               onChange={(e) => {
+                                 if (e.target.files && e.target.files.length > 0) {
+                                   setSyllabusFiles(prev => ({ ...prev, [sub]: e.target.files![0] }));
+                                 }
+                               }} 
+                             />
+                           </label>
+                         </div>
+                       );
+                     })}
                    </div>
 
                    <div className="space-y-4 pt-6">
                      <label className="font-black uppercase tracking-wider text-lg block border-b-4 border-black pb-2">Lifestyle Anchors</label>
+                     <p className="text-sm font-bold opacity-75">Select or add regular activities to build your schedule around:</p>
                      <div className="flex flex-wrap gap-2 sm:gap-3">
-                       {['Gym', 'Sports', 'Music', 'Gaming', 'Socializing'].map(anchor => (
-                         <button 
-                           type="button" 
-                           key={anchor}
-                           onClick={() => toggleAnchor(anchor)}
-                           className={`px-2 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-black uppercase border-4 border-black transition-transform ${lifestyleAnchors.includes(anchor) ? 'bg-accent text-white shadow-[4px_4px_0px_rgba(0,0,0,1)] -translate-y-1' : 'bg-white hover:bg-gray-100'}`}
-                         >
-                           {anchor}
-                         </button>
-                       ))}
+                       {/* Merge default anchors & any newly added anchors into a unique set */}
+                       {Array.from(new Set(['Gym', 'Sports', 'Music', 'Gaming', 'Socializing', ...lifestyleAnchors])).map(anchor => {
+                         const isActive = lifestyleAnchors.includes(anchor);
+                         return (
+                           <button 
+                             type="button" 
+                             key={anchor}
+                             onClick={() => setLifestyleAnchors(prev => prev.includes(anchor) ? prev.filter(a => a !== anchor) : [...prev, anchor])}
+                             className={`px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-black uppercase border-4 border-black transition-transform ${isActive ? 'bg-accent text-white shadow-[4px_4px_0px_rgba(0,0,0,1)] -translate-y-1' : 'bg-white hover:bg-gray-100 hover:-translate-y-0.5 shadow-[2px_2px_0px_rgba(0,0,0,1)]'}`}
+                           >
+                             {anchor}
+                           </button>
+                         )
+                       })}
                      </div>
-                     <div className="flex gap-2 mt-3 sm:mt-4">
-                       <input type="text" placeholder="Custom anchor..." className="input-brutal flex-1 text-xs sm:text-sm py-2 sm:py-3" />
-                       <button type="button" className="btn-brutal bg-black text-white px-3 sm:px-4 py-2 sm:py-3"><Plus className="w-4 h-4" /></button>
+                     <div className="flex gap-2 mt-4 sm:mt-5 max-w-sm">
+                       <input 
+                         type="text" 
+                         value={newAnchor}
+                         onChange={(e) => setNewAnchor(e.target.value)}
+                         onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAnchorAdd())}
+                         placeholder="E.g., Meditation, Commute..." 
+                         className="input-brutal w-full flex-1 text-xs sm:text-sm py-2 sm:py-3 px-3 shadow-[4px_4px_0px_rgba(0,0,0,1)] group-focus-within:shadow-[2px_2px_0px_rgba(0,0,0,1)]" 
+                       />
+                       <button 
+                         type="button" 
+                         onClick={handleAnchorAdd}
+                         className="btn-brutal bg-black hover:bg-primary hover:text-black transition-colors text-white px-3 sm:px-4 py-2 sm:py-3 shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_rgba(0,0,0,1)]"
+                       >
+                         <Plus className="w-5 h-5" />
+                       </button>
                      </div>
                    </div>
                 </div>
@@ -552,8 +848,12 @@ export default function Register() {
                    <div key={s.id} className={`h-2 w-8 border-2 border-black ${currentStep >= s.id ? 'bg-primary' : 'bg-gray-200'}`}></div>
                  ))}
                </div>
-               <button type="submit" className="btn-brutal w-full sm:w-auto text-sm sm:text-lg lg:text-xl px-4 sm:px-6 lg:px-8 py-2 sm:py-3 flex items-center justify-center gap-2 bg-primary group hover:bg-yellow-400 min-h-[44px] sm:min-h-auto">
-                 {currentStep === STEPS.length ? 'Complete Setup' : 'Continue'} 
+               <button 
+                 disabled={isSubmitting}
+                 type="submit" 
+                 className={`btn-brutal w-full sm:w-auto text-sm sm:text-lg lg:text-xl px-4 sm:px-6 lg:px-8 py-2 sm:py-3 flex items-center justify-center gap-2 bg-primary group hover:bg-yellow-400 min-h-[44px] sm:min-h-auto ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+               >
+                 {isSubmitting ? 'Booting...' : currentStep === STEPS.length ? 'Complete Setup' : 'Continue'} 
                  <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 group-hover:translate-x-1 transition-transform" />
                </button>
             </div>
