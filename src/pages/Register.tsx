@@ -225,13 +225,8 @@ export default function Register() {
         const { data: signupData, error: signupError } = await supabase.auth.signUp({ email, password });
 
         if (signupError) {
-            setSignupAttempts(prev => prev + 1);
-            if (signupError.message && signupError.message.includes('fetch')) { 
-               console.warn('Supabase fetch failed. Falling back to local offline register demo.');
-               setCurrentStep(2);
-               setIsSubmitting(false);
-               return;
-            }
+          setSignupAttempts(prev => prev + 1);
+          if (signupError.message.includes('already registered')) {
             throw new Error("This email is already registered. Only 1 account is allowed per email. Please log in.");
           } else {
             throw signupError;
@@ -257,6 +252,12 @@ export default function Register() {
           });
         }
       } catch (err: any) {
+        if (err.message && err.message.includes('fetch')) {
+           console.warn('Supabase fetch failed. Falling back to local offline register demo.');
+           setCurrentStep(2);
+           setIsSubmitting(false);
+           return;
+        }
         setAuthError(err.message || 'An error occurred during account creation.');
         setIsSubmitting(false);
         return; // Halt progression to step 2
@@ -1101,19 +1102,13 @@ export default function Register() {
                  type="submit" 
                  className={`btn-brutal w-full sm:w-auto text-sm sm:text-lg lg:text-xl px-4 sm:px-6 lg:px-8 py-2 sm:py-3 flex items-center justify-center gap-2 bg-primary group hover:bg-yellow-400 min-h-[44px] sm:min-h-auto ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                >
-                 {isSubmitting ? 'Booting...' : currentStep === STEPS.length ? 'Complete Setup' : 'Continue'}
+                 {isSubmitting ? 'Booting...' : currentStep === STEPS.length ? 'Complete Setup' : 'Continue'} 
+                 <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 group-hover:translate-x-1 transition-transform" />
                </button>
             </div>
-            
-            <p className="mt-6 text-center text-sm font-bold tracking-wide text-gray-500">
-              ALREADY REGISTERED?{' '}
-              <Link to="/login" className="uppercase text-accent underline decoration-2 underline-offset-4 hover:text-primary">
-                Return to Login
-              </Link>
-            </p>
           </form>
         </div>
       </div>
     </div>
   );
-} 
+}

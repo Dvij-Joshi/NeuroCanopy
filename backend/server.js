@@ -9,6 +9,7 @@ const ffmpeg = require("fluent-ffmpeg");
 const ffmpegPath = require("ffmpeg-static");
 const sdk = require("microsoft-cognitiveservices-speech-sdk");
 const Groq = require("groq-sdk");
+const pdfParse = require("pdf-parse");
 
 const app = express();
 const upload = multer({ dest: "uploads/" });
@@ -192,6 +193,54 @@ Return ONLY valid JSON, no markdown, no extra text.`,
     if (audioPath && fs.existsSync(audioPath)) fs.unlinkSync(audioPath);
     if (wavPath && fs.existsSync(wavPath)) fs.unlinkSync(wavPath);
     res.status(500).json({ error: err.message || "Assessment failed" });
+  }
+});
+
+// ─── Parse Syllabus PDF ──────────────────────────────────────────────────
+app.post("/api/syllabus/upload", upload.single("syllabus"), async (req, res) => {
+  const filePath = req.file?.path;
+
+  if (!filePath) {
+    return res.status(400).json({ error: "Syllabus pdf file is required" });
+  }
+
+  try {
+    const dataBuffer = fs.readFileSync(filePath);
+    const pdfData = await pdfParse(dataBuffer);
+
+    const chat = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        {
+          role: "system",
+          content: `You extracts course structured syllabus from text. Return exactly this JSON format:
+{
+  "units": [
+    { "unit_number": 1, "title": "<Unit Title>", "topics": [ {"title": "<Topic 1>"}, {"title": "<Topic 2>"} ] }
+  ]
+}
+Return ONLY valid JSON. Do not include markdown \`\`\`json wrappers.`,
+        },
+        {
+          role: "user",
+          content: `Here is the syllabus text:\n${pdfData.text.substring(0, 15000)}`,
+        },
+      ],
+      max_tokens: 1500,
+    });
+
+    let resultJson = chat.choices[0].message.content.trim();
+    if (resultJson.startsWith('```json')) {
+        resultJson = resultJson.replace(/```json/g, '').replace(/```/g, '').trim();
+    }
+    const unitsData = JSON.parse(resultJson);
+
+    fs.unlinkSync(filePath);
+    res.json(unitsData);
+  } catch (err) {
+    console.error("PDF Parsing or Groq error:", err.message);
+    if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    res.status(500).json({ error: "Failed to parse syllabus. Make sure you provided a valid PDF." });
   }
 });
 

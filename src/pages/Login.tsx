@@ -50,11 +50,6 @@ export default function Login() {
 
       if (error) {
         setLoginAttempts(prev => prev + 1);
-        if (error.message.includes('fetch')) {
-           console.warn('Supabase fetch failed. Falling back to local offline login demo.');
-           navigate('/dashboard');
-           return;
-        }
         throw error;
       }
       
@@ -73,7 +68,12 @@ export default function Login() {
         }
       }
     } catch (error: any) {
-      if (error.message.includes('Invalid login credentials')) {
+      if (error.message && error.message.includes('fetch')) {
+        console.warn('Supabase fetch failed. Falling back to local offline login demo.');
+        navigate('/dashboard');
+        return;
+      }
+      if (error.message && error.message.includes('Invalid login credentials')) {
         setError(`Login failed. Check your email and password. (${5 - loginAttempts} attempts left)`);
       } else {
         setError(error.message || 'Login failed. Please check your credentials.');
@@ -212,8 +212,8 @@ export default function Login() {
               <button disabled={isLoading} type="submit" className={`btn-brutal mt-6 flex w-full items-center justify-center gap-2 bg-primary py-3 text-lg hover:bg-yellow-400 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>
                 {isLoading ? 'Authenticating...' : 'Authenticate'} <ArrowRight className="h-5 w-5" />
               </button>
-              
-              <p className="mt-6 text-center text-sm font-bold tracking-wide text-gray-500">
+
+              <p className="mt-5 text-center text-sm font-bold">
                 NO ACCOUNT?{' '}
                 <Link to="/register" className="uppercase text-accent underline decoration-2 underline-offset-4">
                   Initialize new profile
