@@ -36,14 +36,17 @@ function convertToWav(inputPath) {
 app.get("/api/question", async (req, res) => {
   try {
     const topic = req.query.topic || "computer science and data structures";
+    const diff = req.query.difficulty || "";
+    const diffText = diff ? `${diff} difficulty ` : "";
+
     const chat = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: "llama-3.1-8b-instant",
       messages: [
         {
           role: "system",
-          content: "You are an interviewer. Generate ONE clear, concise interview question about the given topic. Return ONLY the question text, nothing else.",
+          content: `You are an interviewer. Generate ONE clear, concise interview question about the given topic. Return ONLY the question text, nothing else.`,
         },
-        { role: "user", content: `Generate a technical interview question about: ${topic}` },
+        { role: "user", content: `Generate a ${diffText}technical interview question about: ${topic}` },
       ],
       max_tokens: 100,
     });
@@ -85,28 +88,65 @@ app.post("/api/assess", upload.single("audio"), async (req, res) => {
     pronunciationConfig.applyTo(recognizer);
 
     const azureResult = await new Promise((resolve, reject) => {
-      recognizer.recognizeOnceAsync(
-        (result) => {
-          recognizer.close();
-          if (result.reason === sdk.ResultReason.RecognizedSpeech) {
-            const assessment = sdk.PronunciationAssessmentResult.fromResult(result);
-            resolve({
-              transcript: result.text,
-              pronunciationScore: Math.round(assessment.pronunciationScore ?? 0),
-              fluencyScore: Math.round(assessment.fluencyScore ?? 0),
-              completenessScore: Math.round(assessment.completenessScore ?? 0),
-              accuracyScore: Math.round(assessment.accuracyScore ?? 0),
-              prosodyScore: Math.round(assessment.prosodyScore ?? 0),
-            });
-          } else if (result.reason === sdk.ResultReason.NoMatch) {
-            reject(new Error("No clear speech detected. Please speak closer to the mic and try again."));
-          } else if (result.reason === sdk.ResultReason.Canceled) {
-            const details = sdk.CancellationDetails.fromResult(result);
-            reject(new Error(`Azure canceled: ${details.errorDetails || "Check AZURE_SPEECH_KEY and AZURE_SPEECH_REGION."}`));
-          } else {
-            reject(new Error(`Azure recognition failed: ${result.reason}`));
+      let recognizedText = "";
+      let totalPron = 0, totalFluency = 0, totalComp = 0, totalAcc = 0, totalPros = 0, count = 0;
+
+      recognizer.recognized = (s, e) => {
+        if (e.result.reason === sdk.ResultReason.RecognizedSpeech && e.result.text) {
+          recognizedText += e.result.text + " ";
+          const assessment = sdk.PronunciationAssessmentResult.fromResult(e.result);
+          if (assessment) {
+            totalPron += assessment.pronunciationScore ?? 0;
+            totalFluency += assessment.fluencyScore ?? 0;
+            totalComp += assessment.completenessScore ?? 0;
+            totalAcc += assessment.accuracyScore ?? 0;
+            totalPros += assessment.prosodyScore ?? 0;
+            count++;
           }
-        },
+        }
+      };
+
+      recognizer.sessionStopped = (s, e) => {
+        recognizer.stopContinuousRecognitionAsync(
+          () => {
+            recognizer.close();
+            if (count === 0) {
+              if (recognizedText.trim()) {
+                resolve({
+                  transcript: recognizedText.trim(),
+                  pronunciationScore: 0,
+                  fluencyScore: 0,
+                  completenessScore: 0,
+                  accuracyScore: 0,
+                  prosodyScore: 0,
+                });
+              } else {
+                reject(new Error("No speech detected. Please speak closer to the mic and try again."));
+              }
+              return;
+            }
+            resolve({
+              transcript: recognizedText.trim(),
+              pronunciationScore: Math.round(totalPron / count),
+              fluencyScore: Math.round(totalFluency / count),
+              completenessScore: Math.round(totalComp / count),
+              accuracyScore: Math.round(totalAcc / count),
+              prosodyScore: Math.round(totalPros / count),
+            });
+          },
+          (err) => reject(err)
+        );
+      };
+
+      recognizer.canceled = (s, e) => {
+        if (e.reason === sdk.CancellationReason.Error) {
+          console.error("Azure Cancellation Error:", e.errorDetails);
+          reject(new Error(`Azure canceled: ${e.errorDetails || "Error inside Azure."}`));
+        }
+      };
+
+      recognizer.startContinuousRecognitionAsync(
+        () => {},
         (err) => { recognizer.close(); reject(err); }
       );
     });
@@ -116,35 +156,44 @@ app.post("/api/assess", upload.single("audio"), async (req, res) => {
     const wpm = Math.round((wordCount / audioDurationSec) * 60);
 
     const groqChat = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        {
-          role: "system",
-          content: `You are a technical interview evaluator. Return ONLY valid JSON with these exact fields:
+      model: "llama-3.1-8b-instant",
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content: `You are a technical interview evaluator conducting a verbal, voice-only viva. Do NOT ask for or expect code snippets, syntax implementation, or complex formulas. Evaluate the candidate's spoken conceptual understanding.
+            
+Return ONLY valid JSON format strictly matching this schema:
 {
-  "answerScore": <1-10>,
-  "confidence": <"Low"|"Medium"|"High">,
-  "feedback": "<2-3 sentences>",
-  "strengths": ["<s1>", "<s2>"],
-  "improvements": ["<i1>", "<i2>"]
+  "answerScore": 8,
+  "confidence": "Medium",
+  "feedback": "Two or three sentences evaluating their verbal answer. DO NOT ask for code.",
+  "strengths": ["<string point 1>"],
+  "improvements": ["<string point 1>"]
 }`,
-        },
-        { role: "user", content: `Question: ${question}\n\nAnswer: ${azureResult.transcript}` },
-      ],
-      max_tokens: 400,
-    });
+          },
+          { role: "user", content: `Question: ${question}\n\nAnswer: ${azureResult.transcript}` },
+        ],
+        max_tokens: 400,
+      });
 
-    let groqResult;
-    try {
-      groqResult = JSON.parse(groqChat.choices[0].message.content.trim());
-    } catch {
-      groqResult = { answerScore: 5, confidence: "Medium", feedback: groqChat.choices[0].message.content.trim(), strengths: [], improvements: [] };
-    }
+      let groqResult;
+      try {
+        let rawContent = groqChat.choices[0].message.content.trim();
+        // Fallback exact regex match incase LLM puts pre-text despite json_object mode
+        const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
+        if (jsonMatch) rawContent = jsonMatch[0];
+        
+        groqResult = JSON.parse(rawContent);
+      } catch (err) {
+        console.error("Failed to parse Groq JSON:", err);
+        groqResult = { answerScore: 5, confidence: "Medium", feedback: "Unable to parse feedback format natively.", strengths: [], improvements: [] };
+      }
 
-    if (audioPath && fs.existsSync(audioPath)) fs.unlinkSync(audioPath);
-    if (wavPath && fs.existsSync(wavPath)) fs.unlinkSync(wavPath);
-
-    res.json({
+      if (audioPath && fs.existsSync(audioPath)) fs.unlinkSync(audioPath);
+      if (wavPath && fs.existsSync(wavPath)) fs.unlinkSync(wavPath);
+      
+      res.json({
       question,
       transcript: azureResult.transcript,
       pronunciation: azureResult.pronunciationScore,
@@ -172,7 +221,7 @@ app.post("/api/syllabus/upload", upload.single("syllabus"), async (req, res) => 
     const pdfData = await pdfParse(fs.readFileSync(filePath));
 
     const chat = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: "llama-3.1-8b-instant",
       messages: [
         {
           role: "system",

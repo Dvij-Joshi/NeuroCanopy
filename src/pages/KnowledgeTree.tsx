@@ -80,10 +80,10 @@ export default function KnowledgeTree() {
             const processedTopics = (u.topics || []).map((t: any) => {
               courseTotalTopics++;
               totalTopicsCount++;
-              if (t.status === 'completed') {
+              if (t.status === 'mastered') {
                 courseCompletedTopics++;
                 totalCompleted++;
-              } else if (t.status === 'in-progress') {
+              } else if (t.status === 'in-progress' || t.status === 'learning' || t.status === 'decaying') {
                 totalInProgress++;
               }
 
@@ -139,10 +139,10 @@ export default function KnowledgeTree() {
     let bgClass = 'bg-gray-200 opacity-70';
     let icon = <Lock size={18} className="text-gray-500" />;
     
-    if (topic.status === 'completed') {
+    if (topic.status === 'mastered') {
       bgClass = 'bg-primary shadow-brutal';
       icon = <CheckCircle strokeWidth={3} size={18} className="text-black" />;
-    } else if (topic.status === 'in-progress') {
+    } else if (topic.status === 'in-progress' || topic.status === 'learning' || topic.status === 'decaying') {
       bgClass = 'bg-secondary border-black shadow-brutal';
       icon = <Circle strokeWidth={3} size={18} className="text-black" />;
     }

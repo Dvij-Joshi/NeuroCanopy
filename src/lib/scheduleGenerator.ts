@@ -79,7 +79,7 @@ function computeFreeSlots(
  * Assign exact start/end times to topics — pure code, zero AI.
  */
 function assignTimesToTopics(
-  topics: { id: string; title: string }[],
+  topics: { id: string; title: string, course_title?: string }[],
   freeSlots: FreeSlot[],
   focusDuration: number,
   dateStr: string,
@@ -102,8 +102,9 @@ function assignTimesToTopics(
       const blockEnd = cursor + focusDuration;
       if (blockEnd > slot.endMins) break;
       const topic = topics[topicIdx];
+      const eventTitle = topic.course_title ? `[${topic.course_title}] ${topic.title}` : `Study: ${topic.title}`;
       events.push({
-        title: `Study: ${topic.title}`,
+        title: eventTitle,
         category: 'FOCUS',
         start_time: minsToTimeStr(cursor, dateStr),
         end_time: minsToTimeStr(blockEnd, dateStr),
@@ -158,7 +159,9 @@ export async function checkTriggersAndRegenerate(userId: string) {
   const allTopics: any[] = [];
   for (const course of courses as any[]) {
     for (const unit of course.units ?? []) {
-      allTopics.push(...(unit.topics ?? []));
+      for (const t of unit.topics ?? []) {
+        allTopics.push({ ...t, course_title: course.title });
+      }
     }
   }
   const unmasteredTopics = allTopics.filter(t => t.status !== 'mastered');
@@ -178,10 +181,10 @@ export async function checkTriggersAndRegenerate(userId: string) {
   else if (topicsPerDayNeeded >= 2) panicLevel = 3;
   else if (topicsPerDayNeeded >= 1) panicLevel = 2;
 
-  // Step 4 — Sort by priority: decaying → learning → locked
+  // Step 4 — Sort by priority: decaying → learning → in-progress → locked
   const sortedTopics = [...unmasteredTopics].sort((a, b) => {
-    const order: Record<string, number> = { decaying: 1, learning: 2, locked: 3 };
-    return (order[a.status] ?? 4) - (order[b.status] ?? 4);
+    const order: Record<string, number> = { 'decaying': 1, 'learning': 2, 'in-progress': 3, 'locked': 4 };
+    return (order[a.status] ?? 5) - (order[b.status] ?? 5);
   });
 
   // Step 5 — Resolve profile times (null-safe, no hardcoded fallback assumptions)
@@ -289,17 +292,25 @@ export async function markVivaComplete(
   topicId: string | null,
   answerScore: number
 ) {
-  await supabase.from('schedule_events').update({ completed: true }).eq('id', eventId);
-  if (!topicId) return;
-
+  console.log(`[markVivaComplete] called with event:${eventId} topic:${topicId} score:${answerScore}`);
+  
   if (answerScore >= 7) {
-    const { data: topic } = await supabase.from('topics').select('status').eq('id', topicId).single();
+    const { error: evtErr } = await supabase.from('schedule_events').update({ completed: true }).eq('id', eventId);
+    if (evtErr) console.error("[markVivaComplete] Schedule Update Error:", evtErr);
+
+    if (!topicId) return;
+
+    const { data: topic, error: topErr } = await supabase.from('topics').select('status').eq('id', topicId).single();
+    if (topErr) console.error("[markVivaComplete] Topic Fetch Error:", topErr);
+
     if (topic && topic.status !== 'mastered') {
-      const nextStatus = topic.status === 'locked' ? 'learning' : 'mastered';
-      await supabase
+      const { error: topUpdErr } = await supabase
         .from('topics')
-        .update({ status: nextStatus, last_reviewed: new Date().toISOString() })
+        .update({ status: 'mastered', last_reviewed: new Date().toISOString() })
         .eq('id', topicId);
+      if (topUpdErr) console.error("[markVivaComplete] Topic Update Error:", topUpdErr);
     }
+  } else {
+    console.log("[markVivaComplete] Score below 7, not marking complete.");
   }
 }

@@ -14,7 +14,8 @@ export default function Schedule() {
   const [generating, setGenerating] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [popup, setPopup] = useState<{ title: string; message: string; type?: 'success' | 'error' | 'destroy'; panicLevel?: number } | null>(null);
-  
+  const [showConfirm, setShowConfirm] = useState(false);
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
@@ -117,8 +118,8 @@ export default function Schedule() {
 
   const handleClear = async () => {
     if (!userId) return;
-    if (!confirm("Are you sure you want to completely wipe your quantum schedule?")) return;
     setGenerating(true);
+    setShowConfirm(false);
     try {
       await supabase.from('schedule_events').delete().eq('user_id', userId);
       setEvents([]);
@@ -218,7 +219,7 @@ export default function Schedule() {
             <p className="page-subtitle">{monthName} // Real-time DB Sync</p>
           </div>
           <div className="flex gap-2">
-              <button onClick={handleClear} disabled={generating}
+                <button onClick={() => setShowConfirm(true)} disabled={generating}
                 className="btn-brutal flex items-center justify-center bg-red-500 text-white font-bold p-3 border-2 border-black active:translate-y-1 hover:bg-red-600" title="Wipe Old Schedule">
                 <Trash2 className="w-5 h-5 text-white stroke-[3px]" />
               </button>
@@ -266,7 +267,7 @@ export default function Schedule() {
                   </div>
                   {(isFocus || item.category === 'VIVA') && !item.completed && (
                     <button
-                      onClick={() => startViva(item.id, item.topic_id, item.title.replace('Study: ', ''))}
+                        onClick={() => startViva(item.id, item.topic_id, item.title.replace(/^\[.*?\]\s*/, '').replace('Study: ', ''))}
                       className="shrink-0 flex items-center gap-1 px-3 py-2 border-2 border-black bg-black text-white font-bold uppercase text-xs hover:bg-primary hover:text-black transition-colors"
                     >
                       <Mic className="w-3 h-3" strokeWidth={3} /> Viva
@@ -289,34 +290,65 @@ export default function Schedule() {
       </div>
       {popup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className={`card-brutal w-full max-w-md p-6 ${
-            popup.type === 'error' ? 'bg-red-500 text-white' : 
+          <div className={`card-brutal w-full max-w-md p-6 shadow-[8px_8px_0px_rgba(0,0,0,1)] ${
+            popup.type === 'error' ? 'bg-red-500 text-white' :
             popup.type === 'destroy' ? 'bg-black text-white' : 'bg-primary text-black'
           }`}>
-            <div className="flex justify-between items-start mb-4 border-b-4 border-current pb-4">
-              <h3 className="text-2xl font-black uppercase flex items-start gap-3">
-                {popup.type === 'error' ? <ShieldAlert className="w-8 h-8 shrink-0"/> : popup.type === 'destroy' ? <Trash2 className="w-8 h-8 shrink-0"/> : <Zap className="w-8 h-8 shrink-0"/>}
-                <span className="leading-none">{popup.title}</span>
-              </h3>
-              <button onClick={() => setPopup(null)} className="btn-brutal bg-white text-black p-2 hover:bg-gray-200 shrink-0">
-                <X className="w-5 h-5" strokeWidth={3} />
+            <div className="flex justify-between items-start gap-4 mb-4 border-b-4 border-current pb-4">
+              <h2 className="text-2xl font-black uppercase flex items-center gap-3 leading-tight">
+                {popup.type === 'error' ? <ShieldAlert className="w-8 h-8 shrink-0"/> : popup.type === 'destroy' ? <Trash2 className="w-8 h-8 shrink-0 text-red-500"/> : <Zap className="w-8 h-8 shrink-0"/>}
+                <span>{popup.title}</span>
+              </h2>
+              <button onClick={() => setPopup(null)} className="btn-brutal bg-white text-black p-2 hover:bg-gray-200 shrink-0 border-4 border-black transition-transform hover:scale-105 active:scale-95 shadow-[4px_4px_0px_rgba(0,0,0,1)]">
+                <X className="w-6 h-6" strokeWidth={4} />
               </button>
             </div>
-            <p className="font-bold text-lg leading-snug mb-6">{popup.message}</p>
             
+            <p className="font-bold text-lg leading-snug mb-6 opacity-90">{popup.message}</p>
+
             {popup.panicLevel !== undefined && (
-              <div className="flex items-center gap-3 bg-white text-black p-4 border-4 border-black font-bold mb-2">
-                 <span className="uppercase tracking-widest">Panic:</span>
-                 <div className="flex flex-1 h-4 bg-gray-200 border-2 border-black overflow-hidden">
-                   <div className="h-full bg-red-500" style={{ width: `${(popup.panicLevel / 5) * 100}%`}}></div>
+              <div className="flex items-center gap-3 bg-white text-black p-3 border-4 border-black font-bold mb-6">
+                 <span className="uppercase tracking-widest shrink-0 text-sm">Panic Level:</span>
+                 <div className="flex flex-1 h-4 bg-gray-200 border-2 border-black overflow-hidden relative shadow-[inset_2px_2px_0px_rgba(0,0,0,0.2)]">
+                   <div className="h-full bg-red-500 transition-all duration-500" style={{ width: `${(popup.panicLevel / 5) * 100}%`}}></div>
                  </div>
-                 <span>{popup.panicLevel}/5</span>
+                 <span className="text-sm font-black">{popup.panicLevel}/5</span>
               </div>
             )}
 
-            <button onClick={() => setPopup(null)} className="mt-6 w-full btn-brutal bg-white text-black font-black text-xl py-3 uppercase tracking-widest hover:bg-gray-100">
+            <button 
+              onClick={() => setPopup(null)}
+              className="w-full btn-brutal bg-white text-black py-4 text-xl font-bold uppercase transition-transform hover:-translate-y-1 shadow-[4px_4px_0px_rgba(0,0,0,1)]"
+            >
               Acknowledge
             </button>
+          </div>
+        </div>
+      )}
+
+      {showConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="card-brutal bg-white w-full max-w-md p-6 shadow-[8px_8px_0px_rgba(0,0,0,1)]">
+            <h2 className="text-3xl font-black uppercase flex items-center gap-3 mb-4 border-b-4 border-black pb-4 text-black">
+              <Trash2 className="w-8 h-8 text-red-500" strokeWidth={3} /> Wipe Schedule?
+            </h2>
+            <p className="font-bold text-gray-700 text-lg mb-6 leading-tight">
+              This will obliterate your generated calendar. It does not affect your Knowledge Tree stats.
+            </p>
+            <div className="flex gap-4">
+              <button 
+                onClick={() => setShowConfirm(false)}
+                className="flex-1 btn-brutal bg-gray-200 border-4 border-black text-black py-4 text-xl font-bold uppercase transition hover:bg-gray-300 hover:translate-y-1"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleClear}
+                className="flex-1 btn-brutal bg-black border-4 border-black text-white py-4 text-xl font-bold uppercase transition hover:bg-red-600 hover:translate-y-1 shadow-[4px_4px_0px_rgba(0,0,0,1)]"
+              >
+                Erase
+              </button>
+            </div>
           </div>
         </div>
       )}
