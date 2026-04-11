@@ -17,7 +17,7 @@ app.use(express.json());
 
 // Set up Groq client
 const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY || "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", // Fallback to demo key if env missing
+  apiKey: process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY || "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", // Fallback to demo key if env missing
 });
 
 // Configure multer for in-memory uploads
@@ -59,7 +59,7 @@ app.post('/api/syllabus/upload', upload.single('syllabus'), async (req, res) => 
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `Syllabus Text: \n${fullText.substring(0, 25000)}` }
       ],
-      model: 'llama-3.3-70b-versatile',
+      model: 'llama-3.1-8b-instant',
       response_format: { type: 'json_object' }
     });
 
