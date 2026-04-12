@@ -4,6 +4,7 @@ import 'package:timeago/timeago.dart' as timeago;
 import '../widgets/brutalist_widgets.dart';
 import 'profile_screen.dart';
 import 'settings_screen.dart';
+import 'focus_mode_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -275,7 +276,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          BrutalistButton(text: 'START FOCUS BLOCK', onPressed: () {}),
+          BrutalistButton(
+            text: 'START FOCUS BLOCK',
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FocusModeScreen())),
+          ),
         ],
       ),
     );
