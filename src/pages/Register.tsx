@@ -57,6 +57,7 @@ export default function Register() {
 
   // Identity & Cognitive States (Step 2)
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarBase64, setAvatarBase64] = useState<string | null>(null);
   const [fullName, setFullName] = useState('');
   const [university, setUniversity] = useState('');
   const [major, setMajor] = useState('');
@@ -282,7 +283,7 @@ export default function Register() {
                academic_year: academicYear,
                chronotype: chronotype,
                focus_duration: focusDuration,
-               avatar_url: null 
+               avatar_url: avatarBase64 
              };
           }
           // Bio-Rhythms Save
@@ -411,7 +412,7 @@ export default function Register() {
                  social_leisure_mins: socialLeisure,
                  anchors: lifestyleAnchors
                },
-               avatar_url: null // Mocking URL until Storage configured
+               avatar_url: avatarBase64 // Changed back to include the stored photo
           };
 
           const { error: profileError } = await supabase
@@ -752,11 +753,19 @@ export default function Register() {
                          className="hidden" 
                          onChange={(e) => {
                            if (e.target.files && e.target.files[0]) {
-                             setAvatarFile(e.target.files[0]);
+                             const file = e.target.files[0];
+                             setAvatarFile(file);
+                             const reader = new FileReader();
+                             reader.onloadend = () => {
+                               setAvatarBase64(reader.result as string);
+                             };
+                             reader.readAsDataURL(file);
                            }
                          }}
                        />
-                       {avatarFile ? (
+                       {avatarBase64 ? (
+                         <img src={avatarBase64} alt="Avatar" className="w-full h-full object-cover" />
+                       ) : avatarFile ? (
                          <img src={URL.createObjectURL(avatarFile)} alt="Avatar" className="w-full h-full object-cover" />
                        ) : (
                          <Upload className="w-6 h-6 sm:w-8 sm:h-8" />
