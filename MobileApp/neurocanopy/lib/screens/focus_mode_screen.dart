@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../widgets/brutalist_widgets.dart';
 
 class FocusModeScreen extends StatefulWidget {
@@ -10,6 +11,7 @@ class FocusModeScreen extends StatefulWidget {
 }
 
 class _FocusModeScreenState extends State<FocusModeScreen> with WidgetsBindingObserver {
+  static const platform = MethodChannel('com.neurocanopy/focus');
   static const int _blockDuration = 25 * 60; // 25 minutes
   int _remainingSeconds = _blockDuration;
   Timer? _timer;
@@ -42,12 +44,18 @@ class _FocusModeScreenState extends State<FocusModeScreen> with WidgetsBindingOb
     }
   }
 
-  void _startFocusBlock() {
+  void _startFocusBlock() async {
     setState(() {
       _isActive = true;
       _focusFailed = false;
       _remainingSeconds = _blockDuration;
     });
+
+    try {
+      await platform.invokeMethod('startPinning');
+    } catch (e) {
+      debugPrint("Failed to start lock task: $e");
+    }
 
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_remainingSeconds > 0) {
@@ -56,9 +64,18 @@ class _FocusModeScreenState extends State<FocusModeScreen> with WidgetsBindingOb
         // Success
         timer.cancel();
         setState(() => _isActive = false);
+        _stopPinning();
         _showSuccessDialog();
       }
     });
+  }
+
+  void _stopPinning() async {
+    try {
+      await platform.invokeMethod('stopPinning');
+    } catch (e) {
+      debugPrint("Failed to stop lock task: $e");
+    }
   }
 
   void _giveUp() {
@@ -67,6 +84,7 @@ class _FocusModeScreenState extends State<FocusModeScreen> with WidgetsBindingOb
       _focusFailed = true;
       _timer?.cancel();
     });
+    _stopPinning();
     _showFailureDialog();
   }
 
