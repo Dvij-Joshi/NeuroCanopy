@@ -449,7 +449,8 @@ export default function Register() {
       formData.append('syllabus', file);
 
       // 1. Send extracted text to Node.js backend (which hits Groq)
-      const res = await fetch('http://localhost:3001/api/syllabus/upload', {
+      const API = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const res = await fetch(API + '/api/syllabus/upload', {
         method: 'POST',
         body: formData
       });

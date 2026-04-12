@@ -37,3 +37,8 @@ logs/
 # Temp files
 *.tmp
 .cache/
+
+# File uploads
+uploads/
+backend/uploads/
+.vercel

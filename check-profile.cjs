@@ -1,1 +1,0 @@
-require('dotenv').config({path:'.env'}); const { createClient } = require('@supabase/supabase-js'); const s = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY); s.from('profiles').select('*').limit(1).then(r => console.log(r)).catch(console.error);

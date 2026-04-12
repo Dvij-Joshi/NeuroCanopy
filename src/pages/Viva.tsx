@@ -4,7 +4,7 @@ import { Mic, MicOff, Play, Square, Award, RefreshCcw, Calendar, ChevronRight, X
 import { supabase } from '../lib/supabase';
 import { markVivaComplete } from '../lib/scheduleGenerator';
 
-const API = "http://localhost:3001/api";
+const API = (import.meta.env.VITE_API_URL || 'http://localhost:3001') + "/api";
 type Stage = "idle" | "custom_setup" | "fetching" | "ready" | "recording" | "processing" | "result" | "error";
 
 interface Report {

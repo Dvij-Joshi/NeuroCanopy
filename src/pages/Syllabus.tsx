@@ -196,7 +196,8 @@ export default function Syllabus() {
       formData.append('syllabus', file);
 
       console.log('Sending file to /api/syllabus/upload');
-      const res = await fetch('http://localhost:3001/api/syllabus/upload', {
+      const API = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const res = await fetch(API + '/api/syllabus/upload', {
         method: 'POST',
         body: formData
       });
