@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../widgets/brutalist_widgets.dart';
 import '../theme/brutalist_theme.dart';
 import 'login_screen.dart';
@@ -269,14 +269,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const SizedBox(height: 24),
             BrutalistTextField(
               label: "Password",
-              hintText: "••••••••",
+              hintText: "â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢",
               obscureText: true,
               controller: _passwordController,
             ),
             const SizedBox(height: 24),
             BrutalistTextField(
               label: "Confirm Password",
-              hintText: "••••••••",
+              hintText: "â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢",
               obscureText: true,
               controller: _confirmPasswordController,
             ),

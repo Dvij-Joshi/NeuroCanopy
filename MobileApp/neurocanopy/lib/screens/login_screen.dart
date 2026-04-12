@@ -1,7 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../widgets/brutalist_widgets.dart';
 import '../theme/brutalist_theme.dart';
 import 'register_screen.dart';
+import 'main_layout/main_scaffold.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -22,19 +24,39 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
 
-    // TODO: Connect Supabase
-    await Future.delayed(const Duration(seconds: 2));
-
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       setState(() {
-        _error = "Login failed. Please check your credentials.";
+        _error = "Please enter your email and passphrase.";
         _isLoading = false;
       });
       return;
     }
 
-    setState(() => _isLoading = false);
-    // Navigate to dashboard Route
+    try {
+      final response = await Supabase.instance.client.auth.signInWithPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+
+      if (response.session != null) {
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const MainScaffold()),
+        );
+      }
+    } on AuthException catch (e) {
+      setState(() {
+        _error = e.message;
+      });
+    } catch (e) {
+      setState(() {
+        _error = "Authentication failed. Please check your credentials.";
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -125,7 +147,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(height: 24),
                           BrutalistTextField(
                             label: "Passphrase",
-                            hintText: "••••••••",
+                            hintText: "â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢",
                             obscureText: true,
                             controller: _passwordController,
                           ),
