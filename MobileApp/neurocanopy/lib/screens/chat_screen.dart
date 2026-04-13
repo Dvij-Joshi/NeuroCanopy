@@ -4,7 +4,8 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../widgets/brutalist_widgets.dart';
 
-const String groqApiKey = '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';
+// TODO: Load this from a .env file using flutter_dotenv package
+const String groqApiKey = const String.fromEnvironment('GROQ_API_KEY', defaultValue: '');
 
 class ChatMessage {
   final String id;

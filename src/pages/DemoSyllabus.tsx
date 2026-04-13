@@ -7,7 +7,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLi
 
 // Initialize Groq client
 // Note: In production, API keys should be in environment variables OR called via a backend.
-const GROQ_API_KEY = "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";
+const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY || "";
 
 const groq = new Groq({
   apiKey: GROQ_API_KEY,
